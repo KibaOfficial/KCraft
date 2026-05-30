@@ -6,6 +6,10 @@
     <ProjectReference Include="..\KCraft.Blocks\KCraft.Blocks.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="OpenTK" Version="4.9.4" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
