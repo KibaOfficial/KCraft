@@ -5,6 +5,7 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
+using KCraft.Assets;
 
 namespace KCraft.Rendering;
 
@@ -14,49 +15,78 @@ public sealed class KCraftWindow : GameWindow
   private float _time;
   private int _uModel, _uView, _uProjection;
 
+  private Texture2D _texture = null!;
+
   private static readonly float[] Vertices =
   {
-    // X      Y      Z
-    -0.5f, -0.5f, -0.5f,  // 0: Back-bottom-left
-    0.5f, -0.5f, -0.5f,  // 1: Back-bottom-right
-    0.5f,  0.5f, -0.5f,  // 2: Back-top-right
-    -0.5f,  0.5f, -0.5f,  // 3: Back-top-left
-    -0.5f, -0.5f,  0.5f,  // 4: Front-bottom-left
-    0.5f, -0.5f,  0.5f,  // 5: Front-bottom-right
-    0.5f,  0.5f,  0.5f,  // 6: Front-top-right
-    -0.5f,  0.5f,  0.5f,  // 7: Front-top-left
+    // X      Y      Z      U     V
+    // Back
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    // Front
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+    // Left
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    // Right
+    0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+    // Top
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+    0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    // Bottom
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+    0.5f, -0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 1.0f,
   };
 
   private static readonly uint[] Indices =
   {
-    0, 1, 2,  2, 3, 0,  // Back
-    4, 5, 6,  6, 7, 4,  // Front
-    0, 4, 7,  7, 3, 0,  // Left
-    1, 5, 6,  6, 2, 1,  // Right
-    3, 7, 6,  6, 2, 3,  // Top
-    0, 4, 5,  5, 1, 0,  // Bottom
+    0,  1,  2,   2,  3,  0,  // Back
+    4,  5,  6,   6,  7,  4,  // Front
+    8,  9, 10,  10, 11,  8,  // Left
+    12, 13, 14,  14, 15, 12,  // Right
+    16, 17, 18,  18, 19, 16,  // Top
+    20, 21, 22,  22, 23, 20,  // Bottom
   };
 
   private const string VertexShaderSource = """
-  #version 410 core
-  layout(location = 0) in vec3 aPosition;
-  uniform mat4 uModel;
-  uniform mat4 uView;
-  uniform mat4 uProjection;
-  void main()
-  {
-    gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
-  }
-  """;
+    #version 410 core
+    layout(location = 0) in vec3 aPosition;
+    layout(location = 1) in vec2 aTexCoord;
+    out vec2 vTexCoord;
+    uniform mat4 uModel;
+    uniform mat4 uView;
+    uniform mat4 uProjection;
+    void main()
+    {
+      vTexCoord   = aTexCoord;
+      gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
+    }
+    """;
 
   private const string FragmentShaderSource = """
-  #version 410 core
-  out vec4 FragColor;
-  void main()
-  {
-    FragColor = vec4(0.4, 0.8, 0.4, 1.0); // Set the triangle color to a light green
-  }
-  """;
+    #version 410 core
+    in vec2 vTexCoord;
+    out vec4 FragColor;
+    uniform sampler2D uTexture;
+    void main()
+    {
+      FragColor = texture(uTexture, vTexCoord);
+    }
+    """;
   public KCraftWindow() : base(
     new GameWindowSettings { UpdateFrequency = 60.0 },
     new NativeWindowSettings
@@ -71,6 +101,7 @@ public sealed class KCraftWindow : GameWindow
   {
     base.OnLoad();
     GL.ClearColor(0.1f, 0.1f, 0.15f, 1.0f); // Set clear color to a dark blueish shade
+    _texture = new Texture2D("assets/dev/grass_block_side.png");
 
     // Compile Shaders
     int vert = CompileShader(ShaderType.VertexShader, VertexShaderSource);
@@ -111,9 +142,10 @@ public sealed class KCraftWindow : GameWindow
     GL.BufferData(BufferTarget.ElementArrayBuffer, Indices.Length * sizeof(uint), Indices, BufferUsageHint.StaticDraw);
 
 
-    GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+    GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
     GL.EnableVertexAttribArray(0);
-
+    GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+    GL.EnableVertexAttribArray(1);
     GL.BindVertexArray(0);
   }
 
@@ -133,6 +165,10 @@ public sealed class KCraftWindow : GameWindow
     GL.UniformMatrix4(_uProjection, false, ref projection);
 
     GL.BindVertexArray(_vao);
+
+    _texture.Bind();
+    GL.Uniform1(GL.GetUniformLocation(_shader, "uTexture"), 0);
+    
     GL.DrawElements(PrimitiveType.Triangles, Indices.Length, DrawElementsType.UnsignedInt, 0);
 
     SwapBuffers();
@@ -147,6 +183,7 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnUnload()
   {
     base.OnUnload();
+    _texture.Dispose();
     GL.DeleteVertexArray(_vao);
     GL.DeleteBuffer(_vbo);
     GL.DeleteBuffer(_ebo);
