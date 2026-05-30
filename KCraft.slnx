@@ -7,4 +7,7 @@
     <Project Path="src/KCraft.Rendering/KCraft.Rendering.csproj" />
     <Project Path="src/KCraft.World/KCraft.World.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KCraft.World.Tests/KCraft.World.Tests.csproj" />
+  </Folder>
 </Solution>

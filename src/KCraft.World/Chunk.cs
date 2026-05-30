@@ -7,8 +7,33 @@ namespace KCraft.World;
 
 public sealed class Chunk
 {
-  public const int Size = 16;
+  public const int Width  = 16;
+  public const int Height = 256;
+  public const int Depth  = 16;
 
-  public BlockType[] Blocks { get; } = 
-    new BlockType[Size * Size * Size];
+  public const int Volume = Width * Height * Depth;
+
+  private readonly byte[] _blocks = new byte[Volume];
+
+  private static void ValidateCoordinates(int x, int y, int z)
+  {
+    if (x < 0 || x >= Width)  throw new ArgumentOutOfRangeException(nameof(x));
+    if (y < 0 || y >= Height) throw new ArgumentOutOfRangeException(nameof(y));
+    if (z < 0 || z >= Depth)  throw new ArgumentOutOfRangeException(nameof(z));
+  }
+
+  private static int GetIndex(int x, int y, int z)
+    => (y * Depth + z) * Width + x;
+
+  public Block GetBlock(int x, int y, int z)
+  {
+    ValidateCoordinates(x, y, z);
+    return (Block)_blocks[GetIndex(x, y, z)];
+  }
+
+  public void SetBlock(int x, int y, int z, Block block)
+  {
+    ValidateCoordinates(x, y, z);
+    _blocks[GetIndex(x, y, z)] = (byte)block;
+  }
 }

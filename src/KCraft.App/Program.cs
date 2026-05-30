@@ -1,11 +1,10 @@
 ﻿// Copyright (c) 2026 KibaOfficial
 // All rights reserved.
-
 using KCraft.World;
 
 Console.WriteLine("KCraft");
 
 var chunk = new Chunk();
 
-Console.WriteLine($"Chunk size: {Chunk.Size}");
-Console.WriteLine($"Block Count: {chunk.Blocks.Length}");
+Console.WriteLine($"Chunk: {Chunk.Width}x{Chunk.Height}x{Chunk.Depth}");
+Console.WriteLine($"Block Count: {Chunk.Volume}");
