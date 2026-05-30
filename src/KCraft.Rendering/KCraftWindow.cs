@@ -11,28 +11,41 @@ namespace KCraft.Rendering;
 public sealed class KCraftWindow : GameWindow
 {
   private int _vao, _vbo, _ebo, _shader;
+  private float _time;
+  private int _uModel, _uView, _uProjection;
 
   private static readonly float[] Vertices =
   {
     // X      Y      Z
-    -0.5f,  0.5f,  0.0f,  // 0: Top-left
-    0.5f,  0.5f,  0.0f,  // 1: Top-right
-    0.5f, -0.5f,  0.0f,  // 2: Bottom-right
-    -0.5f, -0.5f,  0.0f,  // 3: Bottom-left
+    -0.5f, -0.5f, -0.5f,  // 0: Back-bottom-left
+    0.5f, -0.5f, -0.5f,  // 1: Back-bottom-right
+    0.5f,  0.5f, -0.5f,  // 2: Back-top-right
+    -0.5f,  0.5f, -0.5f,  // 3: Back-top-left
+    -0.5f, -0.5f,  0.5f,  // 4: Front-bottom-left
+    0.5f, -0.5f,  0.5f,  // 5: Front-bottom-right
+    0.5f,  0.5f,  0.5f,  // 6: Front-top-right
+    -0.5f,  0.5f,  0.5f,  // 7: Front-top-left
   };
 
   private static readonly uint[] Indices =
   {
-    0, 1, 2,  // Dreieck 1: Top-left, Top-right, Bottom-right
-    0, 2, 3,  // Dreieck 2: Top-left, Bottom-right, Bottom-left
+    0, 1, 2,  2, 3, 0,  // Back
+    4, 5, 6,  6, 7, 4,  // Front
+    0, 4, 7,  7, 3, 0,  // Left
+    1, 5, 6,  6, 2, 1,  // Right
+    3, 7, 6,  6, 2, 3,  // Top
+    0, 4, 5,  5, 1, 0,  // Bottom
   };
 
   private const string VertexShaderSource = """
   #version 410 core
   layout(location = 0) in vec3 aPosition;
+  uniform mat4 uModel;
+  uniform mat4 uView;
+  uniform mat4 uProjection;
   void main()
   {
-    gl_Position = vec4(aPosition, 1.0);
+    gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
   }
   """;
 
@@ -72,6 +85,12 @@ public sealed class KCraftWindow : GameWindow
     if (linked == 0)
       throw new Exception($"Shader link error: {GL.GetProgramInfoLog(_shader)}");
 
+    _uModel      = GL.GetUniformLocation(_shader, "uModel");
+    _uView       = GL.GetUniformLocation(_shader, "uView");
+    _uProjection = GL.GetUniformLocation(_shader, "uProjection");
+
+    GL.Enable(EnableCap.DepthTest);
+
     GL.DeleteShader(vert);
     GL.DeleteShader(frag);
 
@@ -100,11 +119,26 @@ public sealed class KCraftWindow : GameWindow
     base.OnRenderFrame(args);
     GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
+    var model      = Matrix4.CreateRotationY(_time) * Matrix4.CreateRotationX(_time * 0.5f);
+    var view       = Matrix4.LookAt(new Vector3(0, 1, 3), Vector3.Zero, Vector3.UnitY);
+    var projection = Matrix4.CreatePerspectiveFieldOfView(
+      MathHelper.DegreesToRadians(60f), Size.X / (float)Size.Y, 0.1f, 100f);
+
     GL.UseProgram(_shader);
+    GL.UniformMatrix4(_uModel,      false, ref model);
+    GL.UniformMatrix4(_uView,       false, ref view);
+    GL.UniformMatrix4(_uProjection, false, ref projection);
+
     GL.BindVertexArray(_vao);
     GL.DrawElements(PrimitiveType.Triangles, Indices.Length, DrawElementsType.UnsignedInt, 0);
 
     SwapBuffers();
+  }
+
+  protected override void OnUpdateFrame(FrameEventArgs args)
+  {
+    base.OnUpdateFrame(args);
+    _time += (float)args.Time;
   }
 
   protected override void OnUnload()
