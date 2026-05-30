@@ -36,4 +36,9 @@ public sealed class Chunk
     ValidateCoordinates(x, y, z);
     _blocks[GetIndex(x, y, z)] = (byte)block;
   }
+
+  public bool IsInside(int x, int y, int z)
+    => x >= 0 && x < Width
+    && y >= 0 && y < Height
+    && z >= 0 && z < Depth;
 }
