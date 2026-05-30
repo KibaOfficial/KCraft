@@ -90,6 +90,9 @@ public sealed class KCraftWindow : GameWindow
     _uProjection = GL.GetUniformLocation(_shader, "uProjection");
 
     GL.Enable(EnableCap.DepthTest);
+    GL.Enable(EnableCap.CullFace);
+    GL.CullFace(TriangleFace.Back);
+    GL.FrontFace(FrontFaceDirection.Ccw);
 
     GL.DeleteShader(vert);
     GL.DeleteShader(frag);
