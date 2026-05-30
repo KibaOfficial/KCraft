@@ -6,6 +6,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
 using KCraft.Assets;
+using KCraft.Blocks;
 
 namespace KCraft.Rendering;
 
@@ -14,8 +15,7 @@ public sealed class KCraftWindow : GameWindow
   private int _vao, _vbo, _ebo, _shader;
   private float _time;
   private int _uModel, _uView, _uProjection;
-
-  private Texture2D _texture = null!;
+  private TextureManager _textureManager = null!;
 
   private static readonly float[] Vertices =
   {
@@ -101,7 +101,7 @@ public sealed class KCraftWindow : GameWindow
   {
     base.OnLoad();
     GL.ClearColor(0.1f, 0.1f, 0.15f, 1.0f); // Set clear color to a dark blueish shade
-    _texture = new Texture2D("assets/dev/grass_block_side.png");
+    _textureManager = new TextureManager("assets/dev");
 
     // Compile Shaders
     int vert = CompileShader(ShaderType.VertexShader, VertexShaderSource);
@@ -166,10 +166,27 @@ public sealed class KCraftWindow : GameWindow
 
     GL.BindVertexArray(_vao);
 
-    _texture.Bind();
     GL.Uniform1(GL.GetUniformLocation(_shader, "uTexture"), 0);
     
-    GL.DrawElements(PrimitiveType.Triangles, Indices.Length, DrawElementsType.UnsignedInt, 0);
+    var def = BlockRegistry.Definitions[Block.Grass];
+    int uTex = GL.GetUniformLocation(_shader, "uTexture");
+
+    GL.BindVertexArray(_vao);
+
+    // Back, Front, Left, Right = Side (je 6 Indices, Offset in uint)
+    _textureManager.Get(def.TextureSide).Bind();
+    GL.Uniform1(uTex, 0);
+    GL.DrawElements(PrimitiveType.Triangles, 24, DrawElementsType.UnsignedInt, 0); // 4 Seiten * 6
+
+    // Top
+    _textureManager.Get(def.TextureTop).Bind();
+    GL.Uniform1(uTex, 0);
+    GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 24 * sizeof(uint));
+
+    // Bottom
+    _textureManager.Get(def.TextureBottom).Bind();
+    GL.Uniform1(uTex, 0);
+    GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 30 * sizeof(uint));
 
     SwapBuffers();
   }
@@ -183,7 +200,7 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnUnload()
   {
     base.OnUnload();
-    _texture.Dispose();
+    _textureManager.Dispose();
     GL.DeleteVertexArray(_vao);
     GL.DeleteBuffer(_vbo);
     GL.DeleteBuffer(_ebo);
