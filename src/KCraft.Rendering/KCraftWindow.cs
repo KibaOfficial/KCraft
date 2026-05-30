@@ -10,14 +10,21 @@ namespace KCraft.Rendering;
 
 public sealed class KCraftWindow : GameWindow
 {
-  private int _vao, _vbo, _shader;
+  private int _vao, _vbo, _ebo, _shader;
 
   private static readonly float[] Vertices =
   {
-    // X     Y     Z
-    -0.5f, -0.5f, 0.0f, // Bottom-left
-     0.5f, -0.5f, 0.0f, // Bottom-right
-     0.0f,  0.5f, 0.0f  // Top-center
+    // X      Y      Z
+    -0.5f,  0.5f,  0.0f,  // 0: Top-left
+    0.5f,  0.5f,  0.0f,  // 1: Top-right
+    0.5f, -0.5f,  0.0f,  // 2: Bottom-right
+    -0.5f, -0.5f,  0.0f,  // 3: Bottom-left
+  };
+
+  private static readonly uint[] Indices =
+  {
+    0, 1, 2,  // Dreieck 1: Top-left, Top-right, Bottom-right
+    0, 2, 3,  // Dreieck 2: Top-left, Bottom-right, Bottom-left
   };
 
   private const string VertexShaderSource = """
@@ -71,10 +78,16 @@ public sealed class KCraftWindow : GameWindow
     // VAO + VBO
     _vao = GL.GenVertexArray();
     _vbo = GL.GenBuffer();
+    _ebo = GL.GenBuffer();
 
     GL.BindVertexArray(_vao);
+
     GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
     GL.BufferData(BufferTarget.ArrayBuffer, Vertices.Length * sizeof(float), Vertices, BufferUsageHint.StaticDraw);
+
+    GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
+    GL.BufferData(BufferTarget.ElementArrayBuffer, Indices.Length * sizeof(uint), Indices, BufferUsageHint.StaticDraw);
+
 
     GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
     GL.EnableVertexAttribArray(0);
@@ -89,7 +102,7 @@ public sealed class KCraftWindow : GameWindow
 
     GL.UseProgram(_shader);
     GL.BindVertexArray(_vao);
-    GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+    GL.DrawElements(PrimitiveType.Triangles, Indices.Length, DrawElementsType.UnsignedInt, 0);
 
     SwapBuffers();
   }
@@ -99,6 +112,7 @@ public sealed class KCraftWindow : GameWindow
     base.OnUnload();
     GL.DeleteVertexArray(_vao);
     GL.DeleteBuffer(_vbo);
+    GL.DeleteBuffer(_ebo);
     GL.DeleteProgram(_shader);
   }
   protected override void OnResize(ResizeEventArgs e)
