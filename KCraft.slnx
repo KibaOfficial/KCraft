@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KCraft.App/KCraft.App.csproj" />
+    <Project Path="src/KCraft.Assets/KCraft.Assets.csproj" />
+    <Project Path="src/KCraft.Blocks/KCraft.Blocks.csproj" />
+    <Project Path="src/KCraft.Core/KCraft.Core.csproj" />
+    <Project Path="src/KCraft.Rendering/KCraft.Rendering.csproj" />
+    <Project Path="src/KCraft.World/KCraft.World.csproj" />
+  </Folder>
+</Solution>

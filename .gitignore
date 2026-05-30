@@ -1,0 +1,99 @@
+# =========================
+# .NET
+# =========================
+
+bin/
+obj/
+
+# User specific
+*.user
+*.suo
+*.userprefs
+
+# Rider
+.idea/
+
+# Visual Studio
+.vs/
+
+# VS Code
+.vscode/
+
+# =========================
+# OS
+# =========================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Logs
+# =========================
+
+*.log
+
+# =========================
+# NuGet
+# =========================
+
+packages/
+
+# =========================
+# Build Outputs
+# =========================
+
+artifacts/
+
+# =========================
+# Minecraft Assets
+# =========================
+
+assets/block/
+
+# Optional:
+# falls du später ganze Minecraft-Jars
+# oder Faithful ZIPs speicherst
+
+*.jar
+*.zip
+
+# =========================
+# Temp
+# =========================
+
+tmp/
+temp/
+
+# =========================
+# Generated Atlas Files
+# (für später)
+# =========================
+
+generated/
+
+# =========================
+# Environment
+# =========================
+
+.env
+.env.*
+
+# =========================
+# Test Results
+# =========================
+
+TestResults/
+
+# =========================
+# BenchmarkDotNet
+# =========================
+
+BenchmarkDotNet.Artifacts/
+
+# =========================
+# JetBrains
+# =========================
+
+_ReSharper*
+*.DotSettings.user

@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\KCraft.Core\KCraft.Core.csproj" />
+    <ProjectReference Include="..\KCraft.Assets\KCraft.Assets.csproj" />
+    <ProjectReference Include="..\KCraft.Blocks\KCraft.Blocks.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
