@@ -93,14 +93,14 @@ public sealed class KCraftWindow : GameWindow
     GL.DeleteShader(vert);
     GL.DeleteShader(frag);
 
-    var generator = new FlatWorldGenerator();
+    var generator = new NoiseWorldGenerator(seed: 42);
     _chunkMeshes = new List<(ChunkMesh mesh, Vector3 offset)>();
 
     for (int cx = -2; cx <= 2; cx++)
     for (int cz = -2; cz <= 2; cz++)
     {
       var chunk = new Chunk();
-      generator.Generate(chunk);
+      generator.Generate(chunk, cx, cz);
       var mesh = new ChunkMesh();
       mesh.Build(chunk);
       _chunkMeshes.Add((mesh, new Vector3(cx * Chunk.Width, 0, cz * Chunk.Depth)));
