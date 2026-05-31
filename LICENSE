@@ -1,0 +1,89 @@
+KCraft Proprietary Source-Available License
+Version 1.0
+
+Copyright (c) 2026 KibaOfficial.
+All rights reserved.
+
+This software, including all source code, documentation, build scripts,
+assets created specifically for KCraft, and related project files, is the
+property of KibaOfficial unless explicitly stated otherwise.
+
+1. Permission Granted
+
+You are allowed to:
+
+a) view and read the source code for personal, educational, and reference
+   purposes;
+
+b) clone or download the repository for private, non-commercial local use;
+
+c) build and run the software locally for personal testing, learning, or
+   evaluation;
+
+d) study the implementation for educational purposes, provided that you do
+   not copy substantial parts of the project into another public or
+   commercial project.
+
+2. Restrictions
+
+You are not allowed to:
+
+a) sell, rent, sublicense, redistribute, or otherwise commercially exploit
+   this software or any modified version of it;
+
+b) publish, upload, mirror, or redistribute copies of this software or
+   modified versions of it without explicit written permission from
+   KibaOfficial;
+
+c) use this software, its source code, or substantial portions of it in a
+   commercial product or service without explicit written permission from
+   KibaOfficial;
+
+d) remove, alter, or obscure copyright notices, author attribution, or this
+   license file;
+
+e) claim ownership or authorship of this software or any substantial part of
+   it;
+
+f) use the name "KCraft", "KibaOfficial", related branding, logos, or project
+   identity in a way that suggests official endorsement or affiliation
+   without permission.
+
+3. Contributions
+
+Unless otherwise agreed in writing, any contribution submitted to this
+project may be used, modified, and distributed by KibaOfficial as part of
+KCraft.
+
+By submitting a contribution, you confirm that you have the right to submit
+it and that it does not knowingly infringe the rights of any third party.
+
+Contributors retain ownership of their own original contributions, but grant
+KibaOfficial a perpetual, worldwide, royalty-free license to use, modify,
+relicense, and distribute those contributions as part of KCraft.
+
+4. Third-Party Components
+
+This project may include or depend on third-party libraries, tools, or
+assets. Those components remain subject to their own licenses.
+
+This license does not grant rights to any third-party content, including but
+not limited to Minecraft assets, textures, sounds, fonts, trademarks, or
+other copyrighted material owned by Mojang, Microsoft, or any other third
+party.
+
+If third-party assets are used locally for development or testing, they must
+be obtained and used in compliance with their respective licenses and terms.
+
+5. No Warranty
+
+This software is provided "as is", without warranty of any kind, express or
+implied, including but not limited to warranties of merchantability, fitness
+for a particular purpose, and non-infringement.
+
+KibaOfficial is not liable for any claim, damage, data loss, system issue, or
+other liability arising from the use of this software.
+
+6. Permission Requests
+
+For permissions beyond the scope of this license, contact KibaOfficial.
