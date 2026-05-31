@@ -25,7 +25,7 @@ public sealed class KCraftWindow : GameWindow
   private Vector2 _lastMousePos;
   private int _uTint;
   private DebugOverlay _debug = null!;
-
+  private ChunkBorderRenderer _chunkBorders = null!;
 
 
   private const string VertexShaderSource = """
@@ -85,8 +85,8 @@ public sealed class KCraftWindow : GameWindow
     if (linked == 0)
       throw new Exception($"Shader link error: {GL.GetProgramInfoLog(_shader)}");
 
-    _uModel      = GL.GetUniformLocation(_shader, "uModel");
-    _uView       = GL.GetUniformLocation(_shader, "uView");
+    _uModel = GL.GetUniformLocation(_shader, "uModel");
+    _uView = GL.GetUniformLocation(_shader, "uView");
     _uProjection = GL.GetUniformLocation(_shader, "uProjection");
     _uTint = GL.GetUniformLocation(_shader, "uTint");
 
@@ -103,17 +103,18 @@ public sealed class KCraftWindow : GameWindow
 
     var generator = new NoiseWorldGenerator(seed: 42);
     _chunkMeshes = new List<(ChunkMesh mesh, Vector3 offset)>();
+    _chunkBorders = new ChunkBorderRenderer();
     int renderRadius = 8; // 17x17 = 289 chunks, each 16x256x16 blocks = 1,048,576 blocks total
 
     for (int cx = -renderRadius; cx <= renderRadius; cx++)
-    for (int cz = -renderRadius; cz <= renderRadius; cz++)
-    {
-      var chunk = new Chunk();
-      generator.Generate(chunk, cx, cz);
-      var mesh = new ChunkMesh();
-      mesh.Build(chunk);
-      _chunkMeshes.Add((mesh, new Vector3(cx * Chunk.Width, 0, cz * Chunk.Depth)));
-    }
+      for (int cz = -renderRadius; cz <= renderRadius; cz++)
+      {
+        var chunk = new Chunk();
+        generator.Generate(chunk, cx, cz);
+        var mesh = new ChunkMesh();
+        mesh.Build(chunk);
+        _chunkMeshes.Add((mesh, new Vector3(cx * Chunk.Width, 0, cz * Chunk.Depth)));
+      }
 
   }
 
@@ -122,24 +123,26 @@ public sealed class KCraftWindow : GameWindow
     base.OnRenderFrame(args);
     GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-    var model      = Matrix4.Identity;
-    var view       = _camera.GetViewMatrix();
+    var model = Matrix4.Identity;
+    var view = _camera.GetViewMatrix();
     var projection = Matrix4.CreatePerspectiveFieldOfView(
       MathHelper.DegreesToRadians(60f), Size.X / (float)Size.Y, 0.1f, 500f);
 
     GL.UseProgram(_shader);
-    GL.UniformMatrix4(_uModel,      false, ref model);
-    GL.UniformMatrix4(_uView,       false, ref view);
+    GL.UniformMatrix4(_uModel, false, ref model);
+    GL.UniformMatrix4(_uView, false, ref view);
     GL.UniformMatrix4(_uProjection, false, ref projection);
 
     foreach (var (mesh, offset) in _chunkMeshes)
     {
       var chunkModel = Matrix4.CreateTranslation(offset);
       GL.UniformMatrix4(_uModel, false, ref chunkModel);
-      mesh.Draw(_textureManager, 
+      mesh.Draw(_textureManager,
         GL.GetUniformLocation(_shader, "uTexture"),
         GL.GetUniformLocation(_shader, "uTint"));
     }
+
+    _chunkBorders.Draw(_camera, view, projection);
 
     GL.Clear(ClearBufferMask.DepthBufferBit); // Depth Buffer leeren für 2D
     _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time, _chunkMeshes.Count);
@@ -163,6 +166,7 @@ public sealed class KCraftWindow : GameWindow
     }
     _textureManager.Dispose();
     _debug.Dispose();
+    _chunkBorders.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -175,12 +179,24 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnKeyDown(KeyboardKeyEventArgs e)
   {
     base.OnKeyDown(e);
+    if (e.IsRepeat) return; // Key Repeat ignorieren
+
     if (e.Key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape)
-      CursorState = CursorState == CursorState.Grabbed 
-        ? CursorState.Normal 
-        : CursorState.Grabbed;
+      CursorState = CursorState == CursorState.Grabbed
+          ? CursorState.Normal
+          : CursorState.Grabbed;
+
     if (e.Key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.F3)
-      _debug.Visible = !_debug.Visible;
+    {
+      if (!KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.G))
+        _debug.Visible = !_debug.Visible;
+    }
+
+    if (e.Key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.G)
+    {
+      if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.F3))
+        _chunkBorders.Visible = !_chunkBorders.Visible;
+    }
   }
 
   protected override void OnMouseMove(MouseMoveEventArgs e)
