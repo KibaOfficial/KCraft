@@ -245,8 +245,16 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnMouseDown(MouseButtonEventArgs e)
   {
     base.OnMouseDown(e);
-    if (e.Button == MouseButton.Left)
-      _ui.HandleClick(MouseState.X, MouseState.Y);
+    if (_ui.State == GameState.Playing)
+    {
+      if (e.Button == MouseButton.Left && _lastHit.Hit)
+        _world.BreakBlock(_lastHit.BlockPos);
+    }
+    else
+    {
+      if (e.Button == MouseButton.Left)
+        _ui.HandleClick(MouseState.X, MouseState.Y);
+    }
   }
 
   protected override void OnMouseMove(MouseMoveEventArgs e)

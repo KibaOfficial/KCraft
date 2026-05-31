@@ -12,7 +12,7 @@ public sealed class WorldManager : IDisposable
 {
   // ── Config ────────────────────────────────────────────────────────────
   public const int RenderRadius = 8;
-  public const int Seed         = 42;
+  public const int Seed = 42;
 
   // ── Data ──────────────────────────────────────────────────────────────
   public List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> ChunkMeshes { get; } = [];
@@ -22,14 +22,14 @@ public sealed class WorldManager : IDisposable
   {
     var generator = new NoiseWorldGenerator(seed: Seed);
     for (int cx = -RenderRadius; cx <= RenderRadius; cx++)
-    for (int cz = -RenderRadius; cz <= RenderRadius; cz++)
-    {
-      var chunk = new Chunk();
-      generator.Generate(chunk, cx, cz);
-      var mesh = new ChunkMesh();
-      mesh.Build(chunk);
-      ChunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
-    }
+      for (int cz = -RenderRadius; cz <= RenderRadius; cz++)
+      {
+        var chunk = new Chunk();
+        generator.Generate(chunk, cx, cz);
+        var mesh = new ChunkMesh();
+        mesh.Build(chunk);
+        ChunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
+      }
   }
 
   public Block? GetBlock(int wx, int wy, int wz)
@@ -50,6 +50,34 @@ public sealed class WorldManager : IDisposable
       return block == Block.Air ? null : block;
     }
     return null;
+  }
+
+  public bool BreakBlock(Vector3i worldPos)
+  {
+    int cx = (int)MathF.Floor(worldPos.X / (float)Chunk.Width);
+    int cz = (int)MathF.Floor(worldPos.Z / (float)Chunk.Depth);
+
+    for (int i = 0; i < ChunkMeshes.Count; i++)
+    {
+      var (mesh, chunk, chunkPos) = ChunkMeshes[i];
+      if (chunkPos.X != cx || chunkPos.Z != cz) continue;
+
+      int lx = worldPos.X - cx * Chunk.Width;
+      int ly = worldPos.Y;
+      int lz = worldPos.Z - cz * Chunk.Depth;
+
+      if (!chunk.IsInside(lx, ly, lz)) return false;
+
+      chunk.SetBlock(lx, ly, lz, Block.Air);
+
+      // Mesh neu bauen
+      var newMesh = new ChunkMesh();
+      newMesh.Build(chunk);
+      mesh.Dispose();
+      ChunkMeshes[i] = (newMesh, chunk, chunkPos);
+      return true;
+    }
+    return false;
   }
 
   public void Dispose()
