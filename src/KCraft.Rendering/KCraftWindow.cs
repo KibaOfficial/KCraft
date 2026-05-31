@@ -6,7 +6,6 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
 using KCraft.Assets;
-using KCraft.Blocks;
 using KCraft.World;
 using KCraft.World.Generation;
 
@@ -19,7 +18,7 @@ public sealed class KCraftWindow : GameWindow
   private int _uModel, _uView, _uProjection;
 
   private TextureManager _textureManager = null!;
-  private ChunkMesh _chunkMesh = null!;
+  private List<(ChunkMesh mesh, Vector3 offset)> _chunkMeshes = null!;
 
   private Camera _camera = null!;
   private bool _firstMouse = true;
@@ -64,7 +63,7 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnLoad()
   {
     base.OnLoad();
-    GL.ClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+    GL.ClearColor(0.53f, 0.81f, 0.98f, 1.0f); // Himmelblau
     _textureManager = new TextureManager("assets/dev");
 
     // Compile Shaders
@@ -94,13 +93,19 @@ public sealed class KCraftWindow : GameWindow
     GL.DeleteShader(vert);
     GL.DeleteShader(frag);
 
-    // Chunk generieren und Mesh bauen
-    var chunk = new Chunk();
-    var gen   = new FlatWorldGenerator();
-    gen.Generate(chunk);
+    var generator = new FlatWorldGenerator();
+    _chunkMeshes = new List<(ChunkMesh mesh, Vector3 offset)>();
 
-    _chunkMesh = new ChunkMesh();
-    _chunkMesh.Build(chunk);
+    for (int cx = -2; cx <= 2; cx++)
+    for (int cz = -2; cz <= 2; cz++)
+    {
+      var chunk = new Chunk();
+      generator.Generate(chunk);
+      var mesh = new ChunkMesh();
+      mesh.Build(chunk);
+      _chunkMeshes.Add((mesh, new Vector3(cx * Chunk.Width, 0, cz * Chunk.Depth)));
+    }
+
   }
 
   protected override void OnRenderFrame(FrameEventArgs args)
@@ -118,7 +123,12 @@ public sealed class KCraftWindow : GameWindow
     GL.UniformMatrix4(_uView,       false, ref view);
     GL.UniformMatrix4(_uProjection, false, ref projection);
 
-    _chunkMesh.Draw(_textureManager, GL.GetUniformLocation(_shader, "uTexture"));
+    foreach (var (mesh, offset) in _chunkMeshes)
+    {
+      var chunkModel = Matrix4.CreateTranslation(offset);
+      GL.UniformMatrix4(_uModel, false, ref chunkModel);
+      mesh.Draw(_textureManager, GL.GetUniformLocation(_shader, "uTexture"));
+    }
 
     SwapBuffers();
   }
@@ -133,7 +143,10 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnUnload()
   {
     base.OnUnload();
-    _chunkMesh.Dispose();
+    foreach (var (mesh, _) in _chunkMeshes)
+    {
+      mesh.Dispose();
+    }
     _textureManager.Dispose();
     GL.DeleteProgram(_shader);
   }
