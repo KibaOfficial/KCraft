@@ -47,8 +47,52 @@ public abstract class Entity
     foreach (var b in blocks) dz = aabb.ClipMoveZ(b, dz);
     aabb = aabb.Offset(0, 0, dz);
 
-    // OnGround: wenn dy < 0 und Y geclipt wurde → auf Boden
-    OnGround = originalDy < 0 && Math.Abs(dy - originalDy) > 0.001f;
+    // ── Step-Up ───────────────────────────────────────────────────────
+    bool steppedUp = false;
+    bool xBlocked = Math.Abs(dx - originalDx) > 0.001f;
+    bool zBlocked = Math.Abs(dz - originalDz) > 0.001f;
+
+    if (OnGround && (xBlocked || zBlocked))
+    {
+      const float stepHeight = 0.6f;
+      var preStepAabb = BoundingBox; // original AABB vor dem Move
+
+      // Hochheben
+      var steppedAabb = preStepAabb.Offset(0, stepHeight, 0);
+      var stepBlocks = GetBlockAABBs(steppedAabb, originalDx, 0, originalDz, getBlock);
+
+      float stepDx = originalDx;
+      float stepDz = originalDz;
+      foreach (var b in stepBlocks) stepDx = steppedAabb.ClipMoveX(b, stepDx);
+      steppedAabb = steppedAabb.Offset(stepDx, 0, 0);
+      foreach (var b in stepBlocks) stepDz = steppedAabb.ClipMoveZ(b, stepDz);
+      steppedAabb = steppedAabb.Offset(0, 0, stepDz);
+
+      bool movedX = Math.Abs(stepDx - originalDx) < 0.001f;
+      bool movedZ = Math.Abs(stepDz - originalDz) < 0.001f;
+
+      if ((xBlocked && movedX) || (zBlocked && movedZ))
+      {
+        // Nach unten fallen bis Boden
+        float stepDy = -stepHeight;
+        var downBlocks = GetBlockAABBs(steppedAabb, 0, stepDy, 0, getBlock);
+        foreach (var b in downBlocks) stepDy = steppedAabb.ClipMoveY(b, stepDy);
+        steppedAabb = steppedAabb.Offset(0, stepDy, 0);
+
+        aabb = steppedAabb;
+        steppedUp = true;
+
+        // Horizontale Velocity resetten damit kein Schlittern
+        var vel2 = Velocity;
+        vel2.X = 0;
+        vel2.Z = 0;
+        Velocity = vel2;
+      }
+    }
+    // ── Ende Step-Up ──────────────────────────────────────────────────
+
+    // OnGround — Step-Up ODER normaler Boden-Clip
+    OnGround = steppedUp || (originalDy < 0 && Math.Abs(dy - originalDy) > 0.001f);
 
     // Velocity auf 0 wenn geclipt
     var vel = Velocity;
@@ -57,7 +101,7 @@ public abstract class Entity
     if (Math.Abs(dz - originalDz) > 0.001f) vel.Z = 0;
     Velocity = vel;
 
-    // Position aktualisieren — aus AABB MinX/MinZ, MinY = Feet
+    // Position aktualisieren — aus AABB
     Position = new Vector3(
       (aabb.MinX + aabb.MaxX) / 2f,
       aabb.MinY,
