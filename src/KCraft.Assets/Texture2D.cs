@@ -12,9 +12,9 @@ public sealed class Texture2D : IDisposable
   public int Width  { get; }
   public int Height { get; }
 
-  public Texture2D(string path)
+  public Texture2D(string path, bool flipVertically = true)
   {
-    StbImage.stbi_set_flip_vertically_on_load(1); // OpenGL erwartet Y-flip
+    StbImage.stbi_set_flip_vertically_on_load(flipVertically ? 1 : 0);
 
     using var stream = File.OpenRead(path);
     var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);

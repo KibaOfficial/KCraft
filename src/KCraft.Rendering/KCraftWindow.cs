@@ -24,6 +24,8 @@ public sealed class KCraftWindow : GameWindow
   private bool _firstMouse = true;
   private Vector2 _lastMousePos;
   private int _uTint;
+  private DebugOverlay _debug = null!;
+
 
 
   private const string VertexShaderSource = """
@@ -69,6 +71,7 @@ public sealed class KCraftWindow : GameWindow
     base.OnLoad();
     GL.ClearColor(0.53f, 0.81f, 0.98f, 1.0f); // Himmelblau
     _textureManager = new TextureManager("assets/dev");
+    _debug = new DebugOverlay("assets/dev/font_ascii.png");
 
     // Compile Shaders
     int vert = CompileShader(ShaderType.VertexShader, VertexShaderSource);
@@ -120,7 +123,7 @@ public sealed class KCraftWindow : GameWindow
     GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
     var model      = Matrix4.Identity;
-    var view = _camera.GetViewMatrix();
+    var view       = _camera.GetViewMatrix();
     var projection = Matrix4.CreatePerspectiveFieldOfView(
       MathHelper.DegreesToRadians(60f), Size.X / (float)Size.Y, 0.1f, 500f);
 
@@ -137,6 +140,9 @@ public sealed class KCraftWindow : GameWindow
         GL.GetUniformLocation(_shader, "uTexture"),
         GL.GetUniformLocation(_shader, "uTint"));
     }
+
+    GL.Clear(ClearBufferMask.DepthBufferBit); // Depth Buffer leeren für 2D
+    _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time, _chunkMeshes.Count);
 
     SwapBuffers();
   }
@@ -156,6 +162,7 @@ public sealed class KCraftWindow : GameWindow
       mesh.Dispose();
     }
     _textureManager.Dispose();
+    _debug.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -172,6 +179,8 @@ public sealed class KCraftWindow : GameWindow
       CursorState = CursorState == CursorState.Grabbed 
         ? CursorState.Normal 
         : CursorState.Grabbed;
+    if (e.Key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.F3)
+      _debug.Visible = !_debug.Visible;
   }
 
   protected override void OnMouseMove(MouseMoveEventArgs e)
