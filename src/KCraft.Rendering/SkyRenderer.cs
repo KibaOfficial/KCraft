@@ -85,13 +85,24 @@ public sealed class SkyRenderer : IDisposable
 
   public void Draw(WorldTime time, Matrix4 view, Matrix4 projection, Camera camera, float aspect)
   {
-    float angle = MathHelper.DegreesToRadians(time.SunAngle - 90f);
-    var sunDir = new Vector3(0f, MathF.Sin(angle), -MathF.Cos(angle));
+    float angle = MathHelper.DegreesToRadians(time.SunAngle);
+    var sunDir = new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f); // Sonne bewegt sich in der X-Y-Ebene, Y=0 ist Sonnenaufgang, Y=1 ist Mittag, Y=0 wieder Sonnenuntergang, also Osten -> Süden -> Westen
 
     float light = time.SkyLight;
-    var skyTop = Lerp(NightTop, DayTop, light);
-    var skyHorizon = Lerp(NightHorizon, DayHorizon, light);
-    var sunColor = time.IsDay ? SunDay : MoonNight;
+    int dayTime = time.DayTime;
+
+    float duskFactor = 0f;
+    if (dayTime >= 10000 && dayTime < 12000)
+      duskFactor = (dayTime - 10000) / 2000f;
+    else if (dayTime >= 12000 && dayTime < 14000)
+      duskFactor = 1f - (dayTime - 12000) / 2000f;
+    else if (dayTime >= 22000 && dayTime < 24000)
+      duskFactor = (dayTime - 22000) / 2000f;
+    else if (dayTime < 2000)
+      duskFactor = 1f - dayTime / 2000f;
+    var skyTop = Lerp(Lerp(NightTop, DayTop, light), DuskTop, duskFactor);
+    var skyHorizon = Lerp(Lerp(NightHorizon, DayHorizon, light), DuskHorizon, duskFactor);
+    var sunColor = Lerp(time.IsDay ? SunDay : MoonNight, SunDusk, duskFactor);
 
     float fovRad = MathHelper.DegreesToRadians(60f);
     float fovTan = MathF.Tan(fovRad / 2f);
@@ -118,10 +129,14 @@ public sealed class SkyRenderer : IDisposable
   // Farb-Paletten
   private static Vector3 DayTop = new(0.30f, 0.55f, 0.90f);
   private static Vector3 DayHorizon = new(0.65f, 0.82f, 0.98f);
+  private static Vector3 DuskTop = new(0.08f, 0.10f, 0.25f);
+  private static Vector3 DuskHorizon = new(0.90f, 0.45f, 0.08f); // Orange
   private static Vector3 NightTop = new(0.01f, 0.01f, 0.06f);
   private static Vector3 NightHorizon = new(0.04f, 0.04f, 0.10f);
   private static Vector3 SunDay = new(1.0f, 0.97f, 0.85f);
+  private static Vector3 SunDusk = new(1.0f, 0.50f, 0.10f);
   private static Vector3 MoonNight = new(0.85f, 0.88f, 0.95f);
+
 
   private static Vector3 Lerp(Vector3 a, Vector3 b, float t)
       => a + (b - a) * Math.Clamp(t, 0f, 1f);

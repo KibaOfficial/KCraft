@@ -13,7 +13,7 @@ public sealed class DebugOverlay : IDisposable
   private readonly string _glVersion;
   private readonly string _gpu;
 
-  public bool Visible { get; set; } = true;
+  public bool Visible { get; set; } = false;
 
   public DebugOverlay(string fontPath)
   {

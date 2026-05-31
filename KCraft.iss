@@ -1,5 +1,7 @@
 #define MyAppName "KCraft"
-#define MyAppVersion "0.2.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.2.0"
+#endif
 #define MyAppPublisher "KibaOfficial"
 #define MyAppURL "https://github.com/KibaOfficial/KCraft"
 #define MyAppExeName "KCraft.App.exe"

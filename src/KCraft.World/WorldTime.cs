@@ -16,6 +16,7 @@ public sealed class WorldTime
 
   // Gesamte Weltzeit (wächst unbegrenzt, nie reset)
   public long TotalTicks { get; private set; } = 6000; // Startzeit: Mittag
+  // public long TotalTicks { get; private set; } = 11500; // Startzeit: kurz vor Sonnenuntergang
 
   // Tageszeit (0-23999)
   public int DayTime => (int)(TotalTicks % TicksPerDay);
@@ -24,7 +25,7 @@ public sealed class WorldTime
   public float DayProgress => DayTime / (float)TicksPerDay;
 
   // Sonnenwinkel in Grad (0° = Aufgang, 180° = Untergang)
-  public float SunAngle => DayProgress * 360f;
+  public float SunAngle => 90f - (DayTime / 12000f) * 180f;
 
   // Ist es Tag? (Ticks 0-12999)
   public bool IsDay => DayTime < 13000;

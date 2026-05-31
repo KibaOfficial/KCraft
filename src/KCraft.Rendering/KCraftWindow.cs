@@ -16,7 +16,7 @@ public sealed class KCraftWindow : GameWindow
 {
   // ── Shader ────────────────────────────────────────────────────────────
   private int _shader;
-  private int _uModel, _uView, _uProjection;
+  private int _uModel, _uView, _uProjection, _uAmbient;
 
   // ── World ─────────────────────────────────────────────────────────────
   private WorldManager _world = null!;
@@ -61,10 +61,11 @@ public sealed class KCraftWindow : GameWindow
     out vec4 FragColor;
     uniform sampler2D uTexture;
     uniform vec3 uTint;
+    uniform float uAmbient;
     void main()
     {
       vec4 color = texture(uTexture, vTexCoord);
-      FragColor = vec4(color.rgb * uTint, color.a);
+      FragColor = vec4(color.rgb * uTint * uAmbient, color.a);
     }
     """;
 
@@ -193,6 +194,10 @@ public sealed class KCraftWindow : GameWindow
     GL.UniformMatrix4(_uView, false, ref view);
     GL.UniformMatrix4(_uProjection, false, ref projection);
 
+    float skyLight = _ticker.Time.SkyLight;
+    float ambient = Math.Clamp(skyLight * (1.0f - 0.267f) + 0.267f, 0.267f, 1.0f);
+    GL.Uniform1(_uAmbient, ambient);
+
     foreach (var (mesh, _, chunkPos) in _world.ChunkMeshes)
     {
       var model = Matrix4.CreateTranslation(
@@ -319,6 +324,7 @@ public sealed class KCraftWindow : GameWindow
     _uModel = GL.GetUniformLocation(_shader, "uModel");
     _uView = GL.GetUniformLocation(_shader, "uView");
     _uProjection = GL.GetUniformLocation(_shader, "uProjection");
+    _uAmbient = GL.GetUniformLocation(_shader, "uAmbient");
   }
 
   private static void InitGL()
