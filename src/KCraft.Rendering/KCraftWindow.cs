@@ -21,6 +21,10 @@ public sealed class KCraftWindow : GameWindow
   private TextureManager _textureManager = null!;
   private ChunkMesh _chunkMesh = null!;
 
+  private Camera _camera = null!;
+  private bool _firstMouse = true;
+  private Vector2 _lastMousePos;
+
   private const string VertexShaderSource = """
     #version 410 core
     layout(location = 0) in vec3 aPosition;
@@ -79,6 +83,9 @@ public sealed class KCraftWindow : GameWindow
     _uView       = GL.GetUniformLocation(_shader, "uView");
     _uProjection = GL.GetUniformLocation(_shader, "uProjection");
 
+    _camera = new Camera(new Vector3(8, 65, -10));
+    CursorState = CursorState.Grabbed;
+
     GL.Enable(EnableCap.DepthTest);
     GL.Enable(EnableCap.CullFace);
     GL.CullFace(TriangleFace.Back);
@@ -102,11 +109,7 @@ public sealed class KCraftWindow : GameWindow
     GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
     var model      = Matrix4.Identity;
-    var view = Matrix4.LookAt(
-      new Vector3(8, 65, -10),  // Position: vor dem Chunk
-      new Vector3(8, 62, 8),    // Ziel: Mitte des Chunks
-      Vector3.UnitY
-    );
+    var view = _camera.GetViewMatrix();
     var projection = Matrix4.CreatePerspectiveFieldOfView(
       MathHelper.DegreesToRadians(60f), Size.X / (float)Size.Y, 0.1f, 500f);
 
@@ -123,6 +126,7 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnUpdateFrame(FrameEventArgs args)
   {
     base.OnUpdateFrame(args);
+    _camera.ProcessKeyboard(KeyboardState, (float)args.Time);
     _time += (float)args.Time;
   }
 
@@ -144,7 +148,21 @@ public sealed class KCraftWindow : GameWindow
   {
     base.OnKeyDown(e);
     if (e.Key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape)
-      Close();
+      CursorState = CursorState == CursorState.Grabbed 
+        ? CursorState.Normal 
+        : CursorState.Grabbed;
+  }
+
+  protected override void OnMouseMove(MouseMoveEventArgs e)
+  {
+    base.OnMouseMove(e);
+    if (_firstMouse)
+    {
+      _lastMousePos = new Vector2(e.X, e.Y);
+      _firstMouse = false;
+      return;
+    }
+    _camera.ProcessMouse(e.DeltaX, e.DeltaY);
   }
 
   private static int CompileShader(ShaderType type, string source)
