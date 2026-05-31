@@ -30,7 +30,7 @@ KCraft is a Minecraft clone written **completely from scratch** — no Unity, no
 
 ## Screenshots
 
-| Main Menu / UI | Debug Overlay / Targeting |
+| Main Menu | In-Game + Debug Overlay |
 |---|---|
 | ![KCraft menu](<docs/screenshots/day2/Screenshot 2026-05-31 161338.png>) | ![KCraft debug overlay](<docs/screenshots/day2/Screenshot 2026-05-31 161216.png>) |
 
@@ -45,48 +45,54 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **289 chunks** rendered simultaneously (render radius 8)
 - `FlatWorldGenerator` — stone → dirt → grass layering
 - `NoiseWorldGenerator` — FastNoiseLite (OpenSimplex2, FBm, 4 octaves) for realistic terrain
-- `WorldTicker` — fixed 20 TPS simulation loop
-- `WorldTime` — Minecraft-style day time, day count, sky light, and clock string
+- `WorldTicker` — fixed **20 TPS** simulation loop (MC-accurate tick order)
+- `WorldTime` — 24,000 ticks/day, SkyLight, TimeString, Day counter
 - Block registry with per-block `BlockDefinition`
-- DDA voxel raycasting for targeted block detection
+- DDA voxel raycasting (Amanatides & Woo) for targeted block detection
+
+### 🎮 Gameplay
+- **Player Entity** — AABB collision, gravity, jump, sprint, sneak
+- **Edge snapping** — can't fall off edges while sneaking
+- **Block Breaking** — left click, instant, chunk mesh rebuild
+- **Block Placing** — right click, player collision check
+- **Block Pick** — middle click copies targeted block to hotbar slot
 
 ### 🎨 Rendering
 - Custom **GLSL shaders** (vertex + fragment)
 - **Face culling** — only visible faces generate mesh geometry
 - **Per-face textures** — grass uses separate top/side/bottom textures
 - **Biome tint** — green tint on grass via shader uniform
-- **Dynamic sky renderer** — day/night gradient plus sun/moon direction from world time
-- **Crosshair renderer** — lightweight 2D reticle drawn over the world
-- **Block highlight renderer** — outlines the currently targeted block
-- **Bitmap font renderer** — Minecraft-style `ascii.png` atlas
-- **2D UI renderer** — `DrawRect` + `DrawText` for overlays and menus
+- **Dynamic sky renderer** — day/night gradient, correct sun arc (east→west)
+- **Sunset colours** — orange/pink dusk transition
+- **Ambient light** — world darkens at night (~27% like MC Brightness 100)
+- **Crosshair renderer** — lightweight 2D reticle
+- **Block highlight renderer** — wireframe outline on targeted block
+- **Block icon renderer** — isometric 2D block icons in hotbar (MC face brightness)
+- **Bitmap font renderer** — Minecraft-style `ascii.png` atlas with proportional metrics
+- **2D UI renderer** — `DrawRect` + `DrawText` for all overlays and menus
 
 ### 🖥️ UI System
-- **Main Menu** — Singleplayer, Multiplayer *(disabled)*, Options *(disabled)*, Quit
-- **Pause Menu** — Back to Game, Options *(disabled)*, Quit to Title
-- `Button` — hover/disabled states, border, centered text
-- `GameState` machine — `MainMenu` / `Playing` / `Paused`
+- **Main Menu** — Singleplayer, Multiplayer *(disabled)*, Options, Quit
+- **Pause Menu** — Back to Game, Options, Quit to Title
+- **Options Menu** — GUI Scale 1×–4×
+- `GameState` machine — `MainMenu` / `Playing` / `Paused` / `Options`
+- MC-accurate button colours — Normal / Hover (yellow text) / Disabled
 - `Screen` base class with `Layout` / `Draw` / `HandleClick`
 
 ### 🔧 Debug Overlay (F3)
-- FPS + frame time
-- World time + day count
-- XYZ position, block coords, chunk coords, chunk-relative position
+- FPS + frame time, world time + day count
+- XYZ, block coords, chunk coords, chunk-relative position
 - Loaded chunks, facing direction (N/S/E/W + yaw/pitch)
-- .NET version, memory usage, display resolution
-- OpenGL version + GPU name
+- .NET version, memory, display resolution, OpenGL version, GPU
 - Targeted block position + block ID
-- Targeted fluid *(placeholder)*
-
-### 🟨 Chunk Borders (F3+G)
-- Yellow 3D line box around your current chunk
-- 4 vertical corner lines + top/bottom horizontal edges
-- Follows the player dynamically
+- **F3+G** — chunk border wireframe
+- **F3+N** — toggle free cam / player cam
+- **F3+B** — player AABB hitbox + eye-level line
 
 ### 📦 Packaging
-- Windows installer script via Inno Setup (`KCraft.iss`)
-- Linux x64 archive artifact under `installer/`
-- Assets are bundled into the installed/published app directory
+- `build-release.ps1` — one-command Windows + Linux build with fancy output
+- Windows installer via Inno Setup (`KCraft.iss`) with dynamic version injection
+- Linux x64 `.tar.gz` archive
 
 ---
 
@@ -115,14 +121,15 @@ kcraft/
 │   ├── KCraft.Rendering/        # KCraftWindow, Camera, ChunkMesh,
 │   │   │                        # TextRenderer, DebugOverlay,
 │   │   │                        # ChunkBorderRenderer, SkyRenderer,
-│   │   │                        # CrosshairRenderer,
-│   │   │                        # BlockHighlightRenderer
+│   │   │                        # CrosshairRenderer, BlockHighlightRenderer,
+│   │   │                        # BlockIconRenderer, HotbarRenderer,
+│   │   │                        # HitboxRenderer, WorldManager, UiScale
 │   │   └── Ui/                  # UiManager, Screen, Button,
-│   │                            # MainMenuScreen, PauseMenuScreen
+│   │                            # MainMenuScreen, PauseMenuScreen, OptionsScreen
 │   └── KCraft.World/            # Chunk, ChunkMath, ChunkPosition,
-│       │                        # FaceDirection, FaceVisibility,
-│       │                        # BlockRaycaster, WorldTime,
-│       │                        # WorldTicker, FastNoiseLite
+│       │                        # AABB, Entity, Player,
+│       │                        # BlockRaycaster, WorldTime, WorldTicker,
+│       │                        # FastNoiseLite
 │       └── Generation/          # IWorldGenerator, FlatWorldGenerator,
 │                                # NoiseWorldGenerator
 ├── docs/
@@ -131,8 +138,7 @@ kcraft/
 ├── tests/
 │   └── KCraft.World.Tests/      # xUnit — 50 tests, all passing
 └── assets/
-    └── dev/                     # grass_block_top/side, dirt, stone,
-                                 # font_ascii.png
+    └── dev/                     # grass_block_top/side, dirt, stone, font_ascii.png
 ```
 
 ---
@@ -150,7 +156,7 @@ kcraft/
 ```bash
 git clone https://github.com/KibaOfficial/KCraft.git
 cd kcraft
-dotnet run --project src/KCraft.App
+dotnet watch run --project src/KCraft.App
 ```
 
 ### Test
@@ -161,26 +167,19 @@ dotnet test
 
 ### Package
 
-Windows publish output is expected under `publish/win-x64` before compiling the Inno Setup script:
-
 ```bash
-dotnet publish src/KCraft.App -c Release -r win-x64 --self-contained true -o publish/win-x64
+.\build-release.ps1 -Version "0.2.0"
 ```
 
-Then compile [`KCraft.iss`](./KCraft.iss) with Inno Setup to create the Windows installer in `installer/`.
+Produces `installer/KCraft-v0.2.0-Setup.exe` and `installer/KCraft-v0.2.0-linux-x64.tar.gz`.
+
+---
 
 ## Platform Support
 
-KCraft currently provides builds for:
+KCraft provides builds for **Windows x64** and **Linux x64**.
 
-- Windows x64
-- Linux x64
-
-macOS and iOS builds are intentionally not planned.
-
-This is a deliberate platform policy. I do not want to support platforms whose vendor direction increasingly restricts developer freedom, especially around low-level experimentation, runtime code generation, JIT access, and open development workflows.
-
-KCraft is a learning-focused, from-scratch engine project. It exists because I enjoy understanding and controlling the full stack — from world generation to rendering. Platforms that move further away from that spirit are not a target for this project.
+macOS and iOS builds are intentionally not planned — KCraft is a learning-focused, from-scratch engine project built around developer freedom at the full stack level.
 
 ---
 
@@ -189,13 +188,19 @@ KCraft is a learning-focused, from-scratch engine project. It exists because I e
 | Input | Action |
 |---|---|
 | `W A S D` | Move |
-| `Space` | Move up |
-| `Left Shift` | Move down |
+| `Space` | Jump |
+| `Left Shift` | Sneak |
+| `Left Ctrl` | Sprint |
+| `Left Click` | Break block |
+| `Right Click` | Place block |
+| `Middle Click` | Pick block |
+| `Scroll / 1–9` | Select hotbar slot |
 | `Mouse` | Look around |
 | `Escape` | Pause / release cursor |
 | `F3` | Toggle debug overlay |
 | `F3 + G` | Toggle chunk borders |
-| Look at block | Target block raycast + highlight |
+| `F3 + N` | Toggle free cam |
+| `F3 + B` | Toggle hitboxes |
 
 ---
 
@@ -203,13 +208,17 @@ KCraft is a learning-focused, from-scratch engine project. It exists because I e
 
 - [ ] Threaded chunk loading / unloading
 - [ ] Frustum culling
-- [ ] Block placement & breaking
 - [ ] Inventory system
-- [x] Sky rendering (sun/moon direction + day/night gradient)
 - [ ] Stars and richer celestial rendering
 - [ ] Ambient occlusion
 - [ ] Save / load world
 - [ ] Multiplayer *(someday 👀)*
+- [x] Sky rendering — sun arc, day/night, sunset colours
+- [x] Ambient light — night darkness
+- [x] Player entity — physics, gravity, jump, sprint, sneak
+- [x] Block breaking + placing + pick
+- [x] Hotbar with isometric block icons
+- [x] Options menu — GUI Scale
 
 ---
 
