@@ -30,7 +30,11 @@ KCraft is a Minecraft clone written **completely from scratch** — no Unity, no
 
 ## Screenshots
 
-> _Coming soon — screenshots of the world, debug overlay, and menus_
+| Main Menu / UI | Debug Overlay / Targeting |
+|---|---|
+| ![KCraft menu](<docs/screenshots/day2/Screenshot 2026-05-31 161338.png>) | ![KCraft debug overlay](<docs/screenshots/day2/Screenshot 2026-05-31 161216.png>) |
+
+More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 
 ---
 
@@ -41,14 +45,20 @@ KCraft is a Minecraft clone written **completely from scratch** — no Unity, no
 - **289 chunks** rendered simultaneously (render radius 8)
 - `FlatWorldGenerator` — stone → dirt → grass layering
 - `NoiseWorldGenerator` — FastNoiseLite (OpenSimplex2, FBm, 4 octaves) for realistic terrain
+- `WorldTicker` — fixed 20 TPS simulation loop
+- `WorldTime` — Minecraft-style day time, day count, sky light, and clock string
 - Block registry with per-block `BlockDefinition`
+- DDA voxel raycasting for targeted block detection
 
 ### 🎨 Rendering
 - Custom **GLSL shaders** (vertex + fragment)
 - **Face culling** — only visible faces generate mesh geometry
 - **Per-face textures** — grass uses separate top/side/bottom textures
 - **Biome tint** — green tint on grass via shader uniform
-- **Bitmap font renderer** — proportional glyph metrics from Minecraft's `ascii.png`
+- **Dynamic sky renderer** — day/night gradient plus sun/moon direction from world time
+- **Crosshair renderer** — lightweight 2D reticle drawn over the world
+- **Block highlight renderer** — outlines the currently targeted block
+- **Bitmap font renderer** — Minecraft-style `ascii.png` atlas
 - **2D UI renderer** — `DrawRect` + `DrawText` for overlays and menus
 
 ### 🖥️ UI System
@@ -60,16 +70,23 @@ KCraft is a Minecraft clone written **completely from scratch** — no Unity, no
 
 ### 🔧 Debug Overlay (F3)
 - FPS + frame time
+- World time + day count
 - XYZ position, block coords, chunk coords, chunk-relative position
 - Loaded chunks, facing direction (N/S/E/W + yaw/pitch)
 - .NET version, memory usage, display resolution
 - OpenGL version + GPU name
-- Targeted block / fluid *(placeholder)*
+- Targeted block position + block ID
+- Targeted fluid *(placeholder)*
 
 ### 🟨 Chunk Borders (F3+G)
 - Yellow 3D line box around your current chunk
 - 4 vertical corner lines + top/bottom horizontal edges
 - Follows the player dynamically
+
+### 📦 Packaging
+- Windows installer script via Inno Setup (`KCraft.iss`)
+- Linux x64 archive artifact under `installer/`
+- Assets are bundled into the installed/published app directory
 
 ---
 
@@ -97,14 +114,20 @@ kcraft/
 │   ├── KCraft.Core/             # Shared types
 │   ├── KCraft.Rendering/        # KCraftWindow, Camera, ChunkMesh,
 │   │   │                        # TextRenderer, DebugOverlay,
-│   │   │                        # ChunkBorderRenderer
+│   │   │                        # ChunkBorderRenderer, SkyRenderer,
+│   │   │                        # CrosshairRenderer,
+│   │   │                        # BlockHighlightRenderer
 │   │   └── Ui/                  # UiManager, Screen, Button,
 │   │                            # MainMenuScreen, PauseMenuScreen
 │   └── KCraft.World/            # Chunk, ChunkMath, ChunkPosition,
 │       │                        # FaceDirection, FaceVisibility,
-│       │                        # FastNoiseLite
+│       │                        # BlockRaycaster, WorldTime,
+│       │                        # WorldTicker, FastNoiseLite
 │       └── Generation/          # IWorldGenerator, FlatWorldGenerator,
 │                                # NoiseWorldGenerator
+├── docs/
+│   └── screenshots/             # Day-by-day development screenshots
+├── installer/                   # Generated release artifacts
 ├── tests/
 │   └── KCraft.World.Tests/      # xUnit — 50 tests, all passing
 └── assets/
@@ -136,6 +159,29 @@ dotnet run --project src/KCraft.App
 dotnet test
 ```
 
+### Package
+
+Windows publish output is expected under `publish/win-x64` before compiling the Inno Setup script:
+
+```bash
+dotnet publish src/KCraft.App -c Release -r win-x64 --self-contained true -o publish/win-x64
+```
+
+Then compile [`KCraft.iss`](./KCraft.iss) with Inno Setup to create the Windows installer in `installer/`.
+
+## Platform Support
+
+KCraft currently provides builds for:
+
+- Windows x64
+- Linux x64
+
+macOS and iOS builds are intentionally not planned.
+
+This is a deliberate platform policy. I do not want to support platforms whose vendor direction increasingly restricts developer freedom, especially around low-level experimentation, runtime code generation, JIT access, and open development workflows.
+
+KCraft is a learning-focused, from-scratch engine project. It exists because I enjoy understanding and controlling the full stack — from world generation to rendering. Platforms that move further away from that spirit are not a target for this project.
+
 ---
 
 ## Controls
@@ -149,6 +195,7 @@ dotnet test
 | `Escape` | Pause / release cursor |
 | `F3` | Toggle debug overlay |
 | `F3 + G` | Toggle chunk borders |
+| Look at block | Target block raycast + highlight |
 
 ---
 
@@ -158,7 +205,8 @@ dotnet test
 - [ ] Frustum culling
 - [ ] Block placement & breaking
 - [ ] Inventory system
-- [ ] Sky rendering (sun, moon, stars, day/night cycle)
+- [x] Sky rendering (sun/moon direction + day/night gradient)
+- [ ] Stars and richer celestial rendering
 - [ ] Ambient occlusion
 - [ ] Save / load world
 - [ ] Multiplayer *(someday 👀)*

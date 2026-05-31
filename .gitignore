@@ -46,6 +46,7 @@ packages/
 artifacts/
 publish/
 installer/*.exe
+installer/*.tar.gz
 
 # =========================
 # Minecraft Assets
