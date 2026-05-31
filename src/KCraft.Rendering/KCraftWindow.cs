@@ -19,12 +19,12 @@ public sealed class KCraftWindow : GameWindow
   // ── Shader ───────────────────────────────────────────────────────────
   private int _shader;
   private int _uModel, _uView, _uProjection, _uTint;
-  private float _time;
 
   // ── World ─────────────────────────────────────────────────────────────
   private TextureManager _textureManager = null!;
   private List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> _chunkMeshes = null!;
   private Camera _camera = null!;
+  private WorldTicker _ticker = null!;
 
   // ── Rendering ─────────────────────────────────────────────────────────
   private DebugOverlay _debug = null!;
@@ -33,7 +33,7 @@ public sealed class KCraftWindow : GameWindow
   private CrosshairRenderer _crosshair = null!;
   private BlockHighlightRenderer _blockHighlight = null!;
   private RaycastHit _lastHit;
-
+  private SkyRenderer _sky = null!;
 
   // ── Input ─────────────────────────────────────────────────────────────
   private bool _firstMouse = true;
@@ -82,7 +82,7 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnLoad()
   {
     base.OnLoad();
-    GL.ClearColor(0.53f, 0.81f, 0.98f, 1.0f);
+    GL.ClearColor(0f, 0f, 0f, 1f);
 
     // Assets
     _textureManager = new TextureManager("assets/dev");
@@ -114,11 +114,15 @@ public sealed class KCraftWindow : GameWindow
     // Camera
     _camera = new Camera(new Vector3(8, 65, -10));
 
+    // World
+    _ticker = new WorldTicker();
+
     // Renderers
     _debug = new DebugOverlay("assets/dev/font_ascii.png");
     _chunkBorders = new ChunkBorderRenderer();
     _ui = new UiManager("assets/dev/font_ascii.png");
     _ui.Layout(new Vector2(Size.X, Size.Y));
+    _sky = new SkyRenderer();
 
     // UI Events
     _ui.MainMenu.OnSingleplayer += StartGame;
@@ -158,6 +162,7 @@ public sealed class KCraftWindow : GameWindow
     _ui.Dispose();
     _crosshair.Dispose();
     _blockHighlight.Dispose();
+    _sky.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -168,8 +173,8 @@ public sealed class KCraftWindow : GameWindow
     base.OnUpdateFrame(args);
     if (_ui.State == GameState.Playing)
     {
+      _ticker.Update((float)args.Time);
       _camera.ProcessKeyboard(KeyboardState, (float)args.Time);
-      _time += (float)args.Time;
     }
   }
 
@@ -185,6 +190,8 @@ public sealed class KCraftWindow : GameWindow
       var view = _camera.GetViewMatrix();
       var projection = Matrix4.CreatePerspectiveFieldOfView(
         MathHelper.DegreesToRadians(60f), Size.X / (float)Size.Y, 0.1f, 500f);
+
+      _sky.Draw(_ticker.Time, view, projection, _camera, Size.X / (float)Size.Y);
 
       // 3D World
       GL.UseProgram(_shader);
@@ -211,7 +218,7 @@ public sealed class KCraftWindow : GameWindow
 
       // 2D Overlays
       GL.Clear(ClearBufferMask.DepthBufferBit);
-      _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time, _chunkMeshes.Count, _lastHit);
+      _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time, _chunkMeshes.Count, _lastHit, _ticker.Time);
       _crosshair.Draw(new Vector2(Size.X, Size.Y));
     }
 

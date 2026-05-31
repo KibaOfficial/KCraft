@@ -22,7 +22,7 @@ public sealed class DebugOverlay : IDisposable
     _gpu = GL.GetString(StringName.Renderer) ?? "unknown";
   }
 
-  public void Draw(Vector2 screen, Camera camera, double fps, int chunks, RaycastHit lastHit)
+  public void Draw(Vector2 screen, Camera camera, double fps, int chunks, RaycastHit lastHit, WorldTime time)
   {
     if (!Visible) return;
 
@@ -54,6 +54,10 @@ public sealed class DebugOverlay : IDisposable
       ("Render Distance: ", Orange),
       ("8", Cyan));
     Gap(ref leftY);
+    LineParts(leftX, ref leftY, lineH, screen,
+      ("Time: ", Orange),
+      ($"{time.TimeString} ", Yellow),
+      ($"(Day {time.Day + 1})", Cyan));
 
     LineParts(leftX, ref leftY, lineH, screen,
       ("XYZ: ", Red),
