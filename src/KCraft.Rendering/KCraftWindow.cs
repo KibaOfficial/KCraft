@@ -7,60 +7,19 @@ using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
 using KCraft.Assets;
 using KCraft.Blocks;
+using KCraft.World;
+using KCraft.World.Generation;
 
 namespace KCraft.Rendering;
 
 public sealed class KCraftWindow : GameWindow
 {
-  private int _vao, _vbo, _ebo, _shader;
+  private int _shader;
   private float _time;
   private int _uModel, _uView, _uProjection;
+
   private TextureManager _textureManager = null!;
-
-  private static readonly float[] Vertices =
-  {
-    // X      Y      Z      U     V
-    // Back
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-    0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-    // Front
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-    0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-    0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-    // Left
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-    -0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-    // Right
-    0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-    0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-    // Top
-    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-    0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-    // Bottom
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-    0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-    0.5f, -0.5f,  0.5f,  1.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 1.0f,
-  };
-
-  private static readonly uint[] Indices =
-  {
-    0,  1,  2,   2,  3,  0,  // Back
-    4,  5,  6,   6,  7,  4,  // Front
-    8,  9, 10,  10, 11,  8,  // Left
-    12, 13, 14,  14, 15, 12,  // Right
-    16, 17, 18,  18, 19, 16,  // Top
-    20, 21, 22,  22, 23, 20,  // Bottom
-  };
+  private ChunkMesh _chunkMesh = null!;
 
   private const string VertexShaderSource = """
     #version 410 core
@@ -87,6 +46,7 @@ public sealed class KCraftWindow : GameWindow
       FragColor = texture(uTexture, vTexCoord);
     }
     """;
+
   public KCraftWindow() : base(
     new GameWindowSettings { UpdateFrequency = 60.0 },
     new NativeWindowSettings
@@ -95,12 +55,12 @@ public sealed class KCraftWindow : GameWindow
       Title = "KCraft v0.1.0",
       APIVersion = new Version(4, 6),
     })
-    { }
+  { }
 
   protected override void OnLoad()
   {
     base.OnLoad();
-    GL.ClearColor(0.1f, 0.1f, 0.15f, 1.0f); // Set clear color to a dark blueish shade
+    GL.ClearColor(0.1f, 0.1f, 0.15f, 1.0f);
     _textureManager = new TextureManager("assets/dev");
 
     // Compile Shaders
@@ -111,7 +71,6 @@ public sealed class KCraftWindow : GameWindow
     GL.AttachShader(_shader, frag);
     GL.LinkProgram(_shader);
 
-    // LinkStatus prüfen
     GL.GetProgram(_shader, GetProgramParameterName.LinkStatus, out int linked);
     if (linked == 0)
       throw new Exception($"Shader link error: {GL.GetProgramInfoLog(_shader)}");
@@ -128,25 +87,13 @@ public sealed class KCraftWindow : GameWindow
     GL.DeleteShader(vert);
     GL.DeleteShader(frag);
 
-    // VAO + VBO
-    _vao = GL.GenVertexArray();
-    _vbo = GL.GenBuffer();
-    _ebo = GL.GenBuffer();
+    // Chunk generieren und Mesh bauen
+    var chunk = new Chunk();
+    var gen   = new FlatWorldGenerator();
+    gen.Generate(chunk);
 
-    GL.BindVertexArray(_vao);
-
-    GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-    GL.BufferData(BufferTarget.ArrayBuffer, Vertices.Length * sizeof(float), Vertices, BufferUsageHint.StaticDraw);
-
-    GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
-    GL.BufferData(BufferTarget.ElementArrayBuffer, Indices.Length * sizeof(uint), Indices, BufferUsageHint.StaticDraw);
-
-
-    GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
-    GL.EnableVertexAttribArray(0);
-    GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
-    GL.EnableVertexAttribArray(1);
-    GL.BindVertexArray(0);
+    _chunkMesh = new ChunkMesh();
+    _chunkMesh.Build(chunk);
   }
 
   protected override void OnRenderFrame(FrameEventArgs args)
@@ -154,39 +101,21 @@ public sealed class KCraftWindow : GameWindow
     base.OnRenderFrame(args);
     GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-    var model      = Matrix4.CreateRotationY(_time) * Matrix4.CreateRotationX(_time * 0.5f);
-    var view       = Matrix4.LookAt(new Vector3(0, 1, 3), Vector3.Zero, Vector3.UnitY);
+    var model      = Matrix4.Identity;
+    var view = Matrix4.LookAt(
+      new Vector3(8, 65, -10),  // Position: vor dem Chunk
+      new Vector3(8, 62, 8),    // Ziel: Mitte des Chunks
+      Vector3.UnitY
+    );
     var projection = Matrix4.CreatePerspectiveFieldOfView(
-      MathHelper.DegreesToRadians(60f), Size.X / (float)Size.Y, 0.1f, 100f);
+      MathHelper.DegreesToRadians(60f), Size.X / (float)Size.Y, 0.1f, 500f);
 
     GL.UseProgram(_shader);
     GL.UniformMatrix4(_uModel,      false, ref model);
     GL.UniformMatrix4(_uView,       false, ref view);
     GL.UniformMatrix4(_uProjection, false, ref projection);
 
-    GL.BindVertexArray(_vao);
-
-    GL.Uniform1(GL.GetUniformLocation(_shader, "uTexture"), 0);
-    
-    var def = BlockRegistry.Definitions[Block.Grass];
-    int uTex = GL.GetUniformLocation(_shader, "uTexture");
-
-    GL.BindVertexArray(_vao);
-
-    // Back, Front, Left, Right = Side (je 6 Indices, Offset in uint)
-    _textureManager.Get(def.TextureSide).Bind();
-    GL.Uniform1(uTex, 0);
-    GL.DrawElements(PrimitiveType.Triangles, 24, DrawElementsType.UnsignedInt, 0); // 4 Seiten * 6
-
-    // Top
-    _textureManager.Get(def.TextureTop).Bind();
-    GL.Uniform1(uTex, 0);
-    GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 24 * sizeof(uint));
-
-    // Bottom
-    _textureManager.Get(def.TextureBottom).Bind();
-    GL.Uniform1(uTex, 0);
-    GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 30 * sizeof(uint));
+    _chunkMesh.Draw(_textureManager, GL.GetUniformLocation(_shader, "uTexture"));
 
     SwapBuffers();
   }
@@ -200,25 +129,22 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnUnload()
   {
     base.OnUnload();
+    _chunkMesh.Dispose();
     _textureManager.Dispose();
-    GL.DeleteVertexArray(_vao);
-    GL.DeleteBuffer(_vbo);
-    GL.DeleteBuffer(_ebo);
     GL.DeleteProgram(_shader);
   }
+
   protected override void OnResize(ResizeEventArgs e)
   {
     base.OnResize(e);
-    GL.Viewport(0, 0, e.Width, e.Height); // Adjust the viewport to the new window size
+    GL.Viewport(0, 0, e.Width, e.Height);
   }
 
   protected override void OnKeyDown(KeyboardKeyEventArgs e)
   {
     base.OnKeyDown(e);
     if (e.Key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape)
-    {
-      Close(); // Close the window when the Escape key is pressed
-    }
+      Close();
   }
 
   private static int CompileShader(ShaderType type, string source)

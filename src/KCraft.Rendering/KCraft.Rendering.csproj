@@ -4,6 +4,7 @@
     <ProjectReference Include="..\KCraft.Core\KCraft.Core.csproj" />
     <ProjectReference Include="..\KCraft.Assets\KCraft.Assets.csproj" />
     <ProjectReference Include="..\KCraft.Blocks\KCraft.Blocks.csproj" />
+    <ProjectReference Include="..\KCraft.World\KCraft.World.csproj" />
   </ItemGroup>
 
   <ItemGroup>
