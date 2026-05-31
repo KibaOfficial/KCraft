@@ -4,14 +4,12 @@
 using KCraft.Assets;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using StbImageSharp;
 
 namespace KCraft.Rendering;
 
 public sealed class TextRenderer : IDisposable
 {
   private readonly Texture2D _font;
-  private readonly GlyphMetric[] _glyphs;
   private int _vao, _vbo;
   private int _shader;
 
@@ -19,6 +17,7 @@ public sealed class TextRenderer : IDisposable
   private const float CharW = 1.0f / 16.0f;
   private const float CharH = 1.0f / 16.0f;
   private const float GlyphPixels = 8.0f;
+  private const float CharAdvancePixels = 8.0f;
   private const float SpaceAdvancePixels = 4.0f;
 
   private const string VertSrc = """
@@ -61,7 +60,6 @@ public sealed class TextRenderer : IDisposable
 
   public TextRenderer(string fontPath)
   {
-    _glyphs = LoadGlyphMetrics(fontPath);
     _font = new Texture2D(fontPath);
 
     int vert = CompileShader(ShaderType.VertexShader,   VertSrc);
@@ -88,7 +86,7 @@ public sealed class TextRenderer : IDisposable
   }
 
   public void DrawText(string text, float x, float y, Vector2 screen,
-    float scale = 2f, Vector4? color = null)
+    float scale = 2f, Vector4? color = null, bool fixedAdvance = false)
   {
     var col = color ?? new Vector4(1, 1, 1, 1);
     var verts = new List<float>();
@@ -97,21 +95,20 @@ public sealed class TextRenderer : IDisposable
     foreach (char c in text)
     {
       int idx = c;
-      if (idx >= _glyphs.Length)
+      if (idx >= 256)
         idx = '?';
 
-      var glyph = _glyphs[idx];
-      if (glyph.Width == 0)
+      if (c == ' ')
       {
-        cx += glyph.Advance * scale;
+        cx += SpaceAdvancePixels * scale;
         continue;
       }
 
-      float u0 = (idx % 16) * CharW + glyph.Left / GlyphPixels * CharW;
+      float u0 = (idx % 16) * CharW;
       float v0 = 1.0f - (idx / 16) * CharH - CharH; 
-      float u1 = (idx % 16) * CharW + (glyph.Left + glyph.Width) / GlyphPixels * CharW;
+      float u1 = u0 + CharW;
       float v1 = v0 + CharH;
-      float w = glyph.Width * scale;
+      float w = GlyphPixels * scale;
       float h = GlyphPixels * scale;
 
       // 2 triangles per char
@@ -122,7 +119,7 @@ public sealed class TextRenderer : IDisposable
       AddVert(verts, cx+w,   y+h,   u1, v0, col);
       AddVert(verts, cx,     y+h,   u0, v0, col);
 
-      cx += glyph.Advance * scale;
+      cx += GetAdvance(c) * scale;
     }
 
     var data = verts.ToArray();
@@ -172,65 +169,17 @@ public sealed class TextRenderer : IDisposable
     GL.Enable(EnableCap.DepthTest);
   }
 
-  public float MeasureTextWidth(string text, float scale = 2f)
+  public float MeasureTextWidth(string text, float scale = 2f, bool fixedAdvance = false)
   {
     float width = 0;
     foreach (char c in text)
-    {
-      int idx = c < _glyphs.Length ? c : '?';
-      width += _glyphs[idx].Advance * scale;
-    }
+      width += GetAdvance(c) * scale;
 
     return width;
   }
 
-  private static GlyphMetric[] LoadGlyphMetrics(string fontPath)
-  {
-    using var stream = File.OpenRead(fontPath);
-    var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
-    var glyphs = new GlyphMetric[256];
-
-    for (int idx = 0; idx < glyphs.Length; idx++)
-    {
-      if (idx == ' ')
-      {
-        glyphs[idx] = new GlyphMetric(0, 0, (int)SpaceAdvancePixels);
-        continue;
-      }
-
-      int cellX = idx % 16 * (int)GlyphPixels;
-      int cellY = idx / 16 * (int)GlyphPixels;
-      int minX = (int)GlyphPixels;
-      int maxX = -1;
-
-      for (int y = 0; y < GlyphPixels; y++)
-      for (int x = 0; x < GlyphPixels; x++)
-      {
-        int px = cellX + x;
-        int py = cellY + y;
-        int alpha = image.Data[(py * image.Width + px) * 4 + 3];
-        if (alpha <= 16)
-          continue;
-
-        minX = Math.Min(minX, x);
-        maxX = Math.Max(maxX, x);
-      }
-
-      if (maxX < minX)
-      {
-        glyphs[idx] = new GlyphMetric(0, 0, 4);
-        continue;
-      }
-
-      int visibleWidth = maxX - minX + 1;
-      int advance = Math.Clamp(visibleWidth + 1, 2, (int)GlyphPixels);
-      glyphs[idx] = new GlyphMetric(minX, visibleWidth, advance);
-    }
-
-    return glyphs;
-  }
-
-  private readonly record struct GlyphMetric(int Left, int Width, int Advance);
+  private static float GetAdvance(char c)
+    => c == ' ' ? SpaceAdvancePixels : CharAdvancePixels;
 
   private static void AddVert(List<float> v, float x, float y,
     float u, float vv, Vector4 c)

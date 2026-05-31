@@ -46,7 +46,7 @@ public sealed class DebugOverlay : IDisposable
 
     LineParts(leftX, ref leftY, lineH, screen,
       ("KCraft ", Orange),
-      ("v0.1.0", Green));
+      ("v0.2.0", Green));
     LineParts(leftX, ref leftY, lineH, screen,
       ($"{fps:F0} fps ", Green),
       ($"/ {1000.0 / fps:F1} ms", Cyan));
