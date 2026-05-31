@@ -7,21 +7,22 @@ namespace KCraft.Rendering.Ui;
 
 public sealed class Button
 {
-  public string Text     { get; set; }
-  public float  X        { get; set; }
-  public float  Y        { get; set; }
-  public float  Width    { get; set; }
-  public float  Height   { get; set; }
-  public bool   Disabled { get; set; } = false;
+  public string Text { get; set; }
+  public float X { get; set; }
+  public float Y { get; set; }
+  public float Width { get; set; }
+  public float Height { get; set; }
+  public bool Disabled { get; set; } = false;
 
   public event Action? OnClick;
 
-  private static readonly Vector4 ColorNormal   = new(0.25f, 0.25f, 0.25f, 0.85f);
-  private static readonly Vector4 ColorHover    = new(0.40f, 0.40f, 0.40f, 0.90f);
-  private static readonly Vector4 ColorDisabled = new(0.15f, 0.15f, 0.15f, 0.70f);
-  private static readonly Vector4 ColorBorder   = new(0.55f, 0.55f, 0.55f, 1.00f);
-  private static readonly Vector4 TextColor     = new(1.0f,  1.0f,  1.0f,  1.0f);
-  private static readonly Vector4 TextDisabled  = new(0.45f, 0.45f, 0.45f, 1.0f);
+  private static readonly Vector4 ColorNormal = new(0x70 / 255f, 0x70 / 255f, 0x70 / 255f, 0.85f);
+  private static readonly Vector4 ColorHover = new(0x8B / 255f, 0x8B / 255f, 0x8B / 255f, 0.90f);
+  private static readonly Vector4 ColorDisabled = new(0x4A / 255f, 0x4A / 255f, 0x4A / 255f, 0.70f);
+  private static readonly Vector4 ColorBorder = new(0xA0 / 255f, 0xA0 / 255f, 0xA0 / 255f, 1.00f);
+  private static readonly Vector4 TextColor = new(0xE0 / 255f, 0xE0 / 255f, 0xE0 / 255f, 1.0f);
+  private static readonly Vector4 TextHover = new(1.0f, 1.0f, 0x55 / 255f, 1.0f); // Gelb!
+  private static readonly Vector4 TextDisabled = new(0xA0 / 255f, 0xA0 / 255f, 0xA0 / 255f, 1.0f);
 
   public Button(string text, float x, float y, float width, float height)
   {
@@ -33,8 +34,8 @@ public sealed class Button
 
   public void Draw(TextRenderer text, Vector2 screen, bool isHover)
   {
-    var bg     = Disabled ? ColorDisabled : isHover ? ColorHover : ColorNormal;
-    var textC  = Disabled ? TextDisabled : TextColor;
+    var bg = Disabled ? ColorDisabled : isHover ? ColorHover : ColorNormal;
+    var textC = Disabled ? TextDisabled : isHover ? TextHover : TextColor;
 
     // Border (1px größer)
     text.DrawRect(X - 1, Y - 1, Width + 2, Height + 2, screen, ColorBorder);
@@ -43,7 +44,7 @@ public sealed class Button
 
     // Text zentriert
     float tw = text.MeasureTextWidth(Text);
-    float tx = X + (Width  - tw) / 2f;
+    float tx = X + (Width - tw) / 2f;
     float ty = Y + (Height - 16f) / 2f; // 16 = Glyph-Höhe bei scale=2
     text.DrawText(Text, tx, ty, screen, color: textC);
   }

@@ -12,15 +12,16 @@ public sealed class HotbarRenderer : IDisposable
   private readonly TextRenderer _text;
   private readonly BlockIconRenderer _icon;
 
-  private const float SlotSize = 40f;
-  private const float SlotPadding = 4f;
-  private const float BorderWidth = 2f;
+  private static float S => UiScale.Scale;
+  private static float SlotSize => 20f * S;
+  private static float SlotPadding => 2f * S;
+  private static float SelectedExtra => 4f * S;
+  private static float BorderWidth => 1f * S;
 
-  private static readonly Vector4 SlotBg = new(0.15f, 0.15f, 0.15f, 0.80f);
-  private static readonly Vector4 SlotBorder = new(0.50f, 0.50f, 0.50f, 1.00f);
-  private static readonly Vector4 SelectedBg = new(0.25f, 0.25f, 0.25f, 0.95f);
-  private static readonly Vector4 SelectedBorder = new(1.00f, 1.00f, 1.00f, 1.00f);
-  private static readonly Vector4 HotbarBg = new(0.10f, 0.10f, 0.10f, 0.70f);
+  private static readonly Vector4 SlotBg = new(0x8B / 255f, 0x8B / 255f, 0x8B / 255f, 1.0f);
+  private static readonly Vector4 SlotBorderDark = new(0x37 / 255f, 0x37 / 255f, 0x37 / 255f, 1.0f); // Top+Left
+  private static readonly Vector4 SlotBorderLight = new(1.0f, 1.0f, 1.0f, 1.0f); // Bottom+Right
+  private static readonly Vector4 HotbarBg = new(0xC6 / 255f, 0xC6 / 255f, 0xC6 / 255f, 0.90f);
 
   public int SelectedSlot { get; set; } = 0;
   public Block[] Slots { get; } = new Block[9]
@@ -52,14 +53,30 @@ public sealed class HotbarRenderer : IDisposable
     {
       float x = hotbarX + i * (SlotSize + SlotPadding);
       bool selected = i == SelectedSlot;
-      var bg = selected ? SelectedBg : SlotBg;
-      var border = selected ? SelectedBorder : SlotBorder;
 
-      // Border
-      _text.DrawRect(x - BorderWidth, hotbarY - BorderWidth,
-          SlotSize + BorderWidth * 2, SlotSize + BorderWidth * 2, screen, border);
-      // Background
-      _text.DrawRect(x, hotbarY, SlotSize, SlotSize, screen, bg);
+      if (selected)
+      {
+        // Selected: 24×24 weißer Rahmen, 2px auf jeder Seite größer
+        float sx = x - SelectedExtra / 2f;
+        float sy = hotbarY - SelectedExtra / 2f;
+        _text.DrawRect(sx, sy, SlotSize + SelectedExtra, SlotSize + SelectedExtra,
+            screen, new Vector4(1f, 1f, 1f, 1f));
+      }
+      else
+      {
+        // Normal: 1px Dark Border Top+Left, Light Bottom+Right
+        _text.DrawRect(x - BorderWidth, hotbarY - BorderWidth,
+            SlotSize + BorderWidth * 2, BorderWidth, screen, SlotBorderDark); // Top
+        _text.DrawRect(x - BorderWidth, hotbarY - BorderWidth,
+            BorderWidth, SlotSize + BorderWidth * 2, screen, SlotBorderDark); // Left
+        _text.DrawRect(x - BorderWidth, hotbarY + SlotSize,
+            SlotSize + BorderWidth * 2, BorderWidth, screen, SlotBorderLight); // Bottom
+        _text.DrawRect(x + SlotSize, hotbarY - BorderWidth,
+            BorderWidth, SlotSize + BorderWidth * 2, screen, SlotBorderLight); // Right
+      }
+
+      // Slot Background
+      _text.DrawRect(x, hotbarY, SlotSize, SlotSize, screen, SlotBg);
 
       // Block Icon
       var block = Slots[i];
@@ -68,14 +85,13 @@ public sealed class HotbarRenderer : IDisposable
 
       // Slot Nummer
       string num = (i + 1).ToString();
-      _text.DrawText(num, x + 2f, hotbarY + 2f, screen,
+      _text.DrawText(num, x + 1f, hotbarY + 1f, screen,
           scale: 1f,
           color: selected
-              ? new Vector4(1f, 1f, 1f, 1f)
+              ? new Vector4(1f, 1f, 0.33f, 1f)
               : new Vector4(0.6f, 0.6f, 0.6f, 1f));
     }
   }
-
   public void Dispose()
   {
     _text.Dispose();

@@ -9,21 +9,24 @@ public sealed class PauseMenuScreen : Screen
 {
   public event Action? OnResume;
   public event Action? OnQuitToTitle;
+  public event Action? OnOptions;
 
-  private static readonly Vector4 Bg      = new(0.0f, 0.0f, 0.0f, 0.45f);
-  private static readonly Vector4 Title   = new(1.0f, 1.0f, 1.0f, 1.0f);
-  private static readonly Vector4 Panel   = new(0.1f, 0.1f, 0.1f, 0.80f);
+  private static readonly Vector4 Bg = new(0.0f, 0.0f, 0.0f, 0.45f);
+  private static readonly Vector4 Title = new(1.0f, 1.0f, 1.0f, 1.0f);
+  private static readonly Vector4 Panel = new(0.1f, 0.1f, 0.1f, 0.80f);
 
   public float _mouseX, _mouseY;
 
   public PauseMenuScreen(TextRenderer text) : base(text)
   {
-    var resume = new Button("Back to Game",   0, 0, 300, 40);
-    var opts   = new Button("Options",        0, 0, 300, 40) { Disabled = true };
-    var quit   = new Button("Quit to Title",  0, 0, 300, 40);
+    var resume = new Button("Back to Game", 0, 0, 300, 40);
+    var opts = new Button("Options", 0, 0, 300, 40) { Disabled = true };
+    var quit = new Button("Quit to Title", 0, 0, 300, 40);
 
     resume.OnClick += () => OnResume?.Invoke();
-    quit.OnClick   += () => OnQuitToTitle?.Invoke();
+    quit.OnClick += () => OnQuitToTitle?.Invoke();
+    opts.Disabled = false;
+    opts.OnClick += () => OnOptions?.Invoke();
 
     Buttons.AddRange([resume, opts, quit]);
   }

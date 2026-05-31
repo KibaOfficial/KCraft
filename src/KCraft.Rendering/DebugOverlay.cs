@@ -12,6 +12,7 @@ public sealed class DebugOverlay : IDisposable
   private readonly TextRenderer _text;
   private readonly string _glVersion;
   private readonly string _gpu;
+  private float _textScale = 2f;
 
   public bool Visible { get; set; } = false;
 
@@ -43,7 +44,8 @@ public sealed class DebugOverlay : IDisposable
     float leftX = 6;
     float leftY = 6;
     float rightY = 6;
-    float lineH = 18;
+    _textScale = UiScale.Scale;
+    float lineH = 9f * _textScale;
 
     LineParts(leftX, ref leftY, lineH, screen,
       ("KCraft ", Orange),
@@ -148,8 +150,8 @@ public sealed class DebugOverlay : IDisposable
     float cx = x;
     foreach (var (text, color) in parts)
     {
-      _text.DrawText(text, cx, y, screen, color: color);
-      cx += _text.MeasureTextWidth(text);
+      _text.DrawText(text, cx, y, screen, scale: _textScale, color: color);
+      cx += _text.MeasureTextWidth(text, _textScale);
     }
     y += lineH;
   }
@@ -166,8 +168,7 @@ public sealed class DebugOverlay : IDisposable
   {
     float width = 0;
     foreach (var (text, _) in parts)
-      width += _text.MeasureTextWidth(text);
-
+      width += _text.MeasureTextWidth(text, _textScale);
     return width;
   }
 
