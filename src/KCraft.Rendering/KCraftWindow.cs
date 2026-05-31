@@ -33,6 +33,7 @@ public sealed class KCraftWindow : GameWindow
   private CrosshairRenderer _crosshair = null!;
   private BlockHighlightRenderer _blockHighlight = null!;
   private UiManager _ui = null!;
+  private HotbarRenderer _hotbar = null!;
 
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
@@ -114,6 +115,7 @@ public sealed class KCraftWindow : GameWindow
     _crosshair.Dispose();
     _blockHighlight.Dispose();
     _ui.Dispose();
+    _hotbar.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -182,6 +184,7 @@ public sealed class KCraftWindow : GameWindow
       _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
         _world.ChunkCount, _lastHit, _ticker.Time, _freeCam);
       _crosshair.Draw(new Vector2(Size.X, Size.Y));
+      _hotbar.Draw(new Vector2(Size.X, Size.Y));
     }
 
     _ui.Draw(new Vector2(Size.X, Size.Y), MouseState.X, MouseState.Y);
@@ -244,6 +247,15 @@ public sealed class KCraftWindow : GameWindow
             _camera.Position = _ticker.Player.EyePosition;
         }
         break;
+      case Keys.D1: _hotbar.SelectedSlot = 0; break;
+      case Keys.D2: _hotbar.SelectedSlot = 1; break;
+      case Keys.D3: _hotbar.SelectedSlot = 2; break;
+      case Keys.D4: _hotbar.SelectedSlot = 3; break;
+      case Keys.D5: _hotbar.SelectedSlot = 4; break;
+      case Keys.D6: _hotbar.SelectedSlot = 5; break;
+      case Keys.D7: _hotbar.SelectedSlot = 6; break;
+      case Keys.D8: _hotbar.SelectedSlot = 7; break;
+      case Keys.D9: _hotbar.SelectedSlot = 8; break;
     }
   }
 
@@ -269,6 +281,14 @@ public sealed class KCraftWindow : GameWindow
     if (_ui.State != GameState.Playing) return;
     if (_firstMouse) { _firstMouse = false; return; }
     _camera.ProcessMouse(e.DeltaX, e.DeltaY);
+  }
+
+  protected override void OnMouseWheel(MouseWheelEventArgs e)
+  {
+    base.OnMouseWheel(e);
+    if (_ui.State != GameState.Playing) return;
+    int delta = e.OffsetY > 0 ? -1 : 1;
+    _hotbar.SelectedSlot = (_hotbar.SelectedSlot + delta + 9) % 9;
   }
 
   protected override void OnResize(ResizeEventArgs e)
@@ -343,6 +363,7 @@ public sealed class KCraftWindow : GameWindow
     _chunkBorders = new ChunkBorderRenderer();
     _crosshair = new CrosshairRenderer(font);
     _blockHighlight = new BlockHighlightRenderer();
+    _hotbar = new HotbarRenderer(font);
   }
 
   private void InitUi()
