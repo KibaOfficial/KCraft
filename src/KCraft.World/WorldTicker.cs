@@ -1,6 +1,9 @@
 // Copyright (c) 2026 KibaOfficial
 // All rights reserved.
 
+using KCraft.Blocks;
+using OpenTK.Mathematics;
+
 namespace KCraft.World;
 
 public sealed class WorldTicker
@@ -13,6 +16,10 @@ public sealed class WorldTicker
 
   public WorldTime Time { get; } = new();
   public float CurrentTps { get; private set; } = 20f;
+  public Player? Player { get; set; }
+  private Func<int, int, int, Block?>? _getBlock;
+  public float Accumulator => _accumulator;
+  public Vector3 PlayerPrevPosition { get; private set; }
 
   // Wird jeden Frame aufgerufen mit deltaTime in Sekunden
   // Gibt zurück wie viele Ticks gefeuert wurden
@@ -43,6 +50,7 @@ public sealed class WorldTicker
 
   private void Tick()
   {
+    PlayerPrevPosition = Player?.Position ?? Vector3.Zero;
     // 1. Weltzeit
     Time.Tick();
 
@@ -50,6 +58,11 @@ public sealed class WorldTicker
     // 3. Block Ticks → TODO
     // 4. Fluid Ticks → TODO
     // 5. Random Ticks → TODO
-    // 6. Entity Tick → TODO
+    // 6. Entity Tick
+    Player?.Tick(_getBlock!);
   }
+  public void SetGetBlock(Func<int, int, int, Block?> getBlock)
+      => _getBlock = getBlock;
+
+  
 }
