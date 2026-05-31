@@ -74,7 +74,7 @@ public sealed class ChunkMesh : IDisposable
     Upload(allVerts, allIndices);
     _indexCount = allIndices.Count;
   }
-  public void Draw(TextureManager textures, int uTexLocation)
+  public void Draw(TextureManager textures, int uTexLocation, int uTintLocation)
   {
     if (_subMeshes.Count == 0) return;
     GL.BindVertexArray(_vao);
@@ -82,7 +82,14 @@ public sealed class ChunkMesh : IDisposable
     {
       textures.Get(texName).Bind();
       GL.Uniform1(uTexLocation, 0);
-      GL.DrawElements(PrimitiveType.Triangles, count, 
+
+      // Grass Top bekommt grünen Tint
+      if (texName == "grass_block_top")
+        GL.Uniform3(uTintLocation, 0.48f, 0.74f, 0.36f);
+      else
+        GL.Uniform3(uTintLocation, 1.0f, 1.0f, 1.0f);
+
+      GL.DrawElements(PrimitiveType.Triangles, count,
         DrawElementsType.UnsignedInt, startIndex * sizeof(uint));
     }
   }

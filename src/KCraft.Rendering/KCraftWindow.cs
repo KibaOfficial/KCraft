@@ -23,6 +23,8 @@ public sealed class KCraftWindow : GameWindow
   private Camera _camera = null!;
   private bool _firstMouse = true;
   private Vector2 _lastMousePos;
+  private int _uTint;
+
 
   private const string VertexShaderSource = """
     #version 410 core
@@ -44,9 +46,11 @@ public sealed class KCraftWindow : GameWindow
     in vec2 vTexCoord;
     out vec4 FragColor;
     uniform sampler2D uTexture;
+    uniform vec3 uTint;
     void main()
     {
-      FragColor = texture(uTexture, vTexCoord);
+      vec4 color = texture(uTexture, vTexCoord);
+      FragColor = vec4(color.rgb * uTint, color.a);
     }
     """;
 
@@ -81,6 +85,7 @@ public sealed class KCraftWindow : GameWindow
     _uModel      = GL.GetUniformLocation(_shader, "uModel");
     _uView       = GL.GetUniformLocation(_shader, "uView");
     _uProjection = GL.GetUniformLocation(_shader, "uProjection");
+    _uTint = GL.GetUniformLocation(_shader, "uTint");
 
     _camera = new Camera(new Vector3(8, 65, -10));
     CursorState = CursorState.Grabbed;
@@ -127,7 +132,9 @@ public sealed class KCraftWindow : GameWindow
     {
       var chunkModel = Matrix4.CreateTranslation(offset);
       GL.UniformMatrix4(_uModel, false, ref chunkModel);
-      mesh.Draw(_textureManager, GL.GetUniformLocation(_shader, "uTexture"));
+      mesh.Draw(_textureManager, 
+        GL.GetUniformLocation(_shader, "uTexture"),
+        GL.GetUniformLocation(_shader, "uTint"));
     }
 
     SwapBuffers();
