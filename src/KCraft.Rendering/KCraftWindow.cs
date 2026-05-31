@@ -34,6 +34,7 @@ public sealed class KCraftWindow : GameWindow
   private BlockHighlightRenderer _blockHighlight = null!;
   private UiManager _ui = null!;
   private HotbarRenderer _hotbar = null!;
+  private HitboxRenderer _hitbox = null!;
 
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
@@ -116,6 +117,7 @@ public sealed class KCraftWindow : GameWindow
     _blockHighlight.Dispose();
     _ui.Dispose();
     _hotbar.Dispose();
+    _hitbox.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -179,10 +181,13 @@ public sealed class KCraftWindow : GameWindow
 
       _chunkBorders.Draw(_camera, view, projection);
 
+      if (_ticker.Player != null && !_freeCam)
+        _hitbox.Draw(_ticker.Player.BoundingBox, view, projection);
+
       // 2D Overlays
       GL.Clear(ClearBufferMask.DepthBufferBit);
       _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
-        _world.ChunkCount, _lastHit, _ticker.Time, _freeCam);
+        _world.ChunkCount, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
       _crosshair.Draw(new Vector2(Size.X, Size.Y));
       _hotbar.Draw(new Vector2(Size.X, Size.Y));
     }
@@ -230,13 +235,9 @@ public sealed class KCraftWindow : GameWindow
         if (!KeyboardState.IsKeyDown(Keys.G))
           _debug.Visible = !_debug.Visible;
         break;
-
-      case Keys.G when _ui.State == GameState.Playing:
+      case Keys.B when _ui.State == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
-          _chunkBorders.Visible = !_chunkBorders.Visible;
-        break;
-      case Keys.Space when _ui.State == GameState.Playing:
-        _ticker.Player?.Jump();
+          _hitbox.Visible = !_hitbox.Visible;
         break;
       case Keys.N when _ui.State == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
@@ -246,6 +247,13 @@ public sealed class KCraftWindow : GameWindow
           if (!_freeCam && _ticker.Player != null)
             _camera.Position = _ticker.Player.EyePosition;
         }
+        break;
+      case Keys.G when _ui.State == GameState.Playing:
+        if (KeyboardState.IsKeyDown(Keys.F3))
+          _chunkBorders.Visible = !_chunkBorders.Visible;
+        break;
+      case Keys.Space when _ui.State == GameState.Playing:
+        _ticker.Player?.Jump();
         break;
       case Keys.D1: _hotbar.SelectedSlot = 0; break;
       case Keys.D2: _hotbar.SelectedSlot = 1; break;
@@ -364,6 +372,7 @@ public sealed class KCraftWindow : GameWindow
     _crosshair = new CrosshairRenderer(font);
     _blockHighlight = new BlockHighlightRenderer();
     _hotbar = new HotbarRenderer(font);
+    _hitbox = new HitboxRenderer();
   }
 
   private void InitUi()

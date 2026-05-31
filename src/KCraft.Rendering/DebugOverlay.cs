@@ -23,7 +23,7 @@ public sealed class DebugOverlay : IDisposable
   }
 
   public void Draw(Vector2 screen, Camera camera, double fps,
-    int chunks, RaycastHit lastHit, WorldTime time, bool freeCam)
+    int chunks, RaycastHit lastHit, WorldTime time, bool freeCam, bool _hitboxVisible)
   {
     if (!Visible) return;
 
@@ -43,7 +43,7 @@ public sealed class DebugOverlay : IDisposable
     float leftX = 6;
     float leftY = 6;
     float rightY = 6;
-    float lineH = 18;    
+    float lineH = 18;
 
     LineParts(leftX, ref leftY, lineH, screen,
       ("KCraft ", Orange),
@@ -108,6 +108,9 @@ public sealed class DebugOverlay : IDisposable
     LineParts(leftX, ref leftY, lineH, screen,
       ("[F3+N] ", Yellow),
       (freeCam ? "Free Cam" : "Player Cam", freeCam ? Green : Gray));
+    LineParts(leftX, ref leftY, lineH, screen,
+      ("[F3+B] ", Yellow),
+      ("Hitboxes", _hitboxVisible ? Green : Gray));
 
     RightLine(ref rightY, lineH, screen,
       (".NET Version: ", Orange),
