@@ -138,7 +138,10 @@ kcraft/
 ├── tests/
 │   └── KCraft.World.Tests/      # xUnit — 50 tests, all passing
 └── assets/
-    └── dev/                     # grass_block_top/side, dirt, stone, font_ascii.png
+    └── dev/
+        ├── faithful/            # Faithful 64x textures (dev placeholders)
+        │   └── FAITHFUL_LICENSE.txt
+        └── font_ascii.png    # Minecraft-style bitmap font atlas
 ```
 
 ---
@@ -225,6 +228,14 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 ## License
 
 Copyright © 2026 KibaOfficial. All rights reserved.
+
+---
+
+## Credits & Third-Party Assets
+
+**Textures**: [Faithful 64x](https://faithfulpack.net/) by the Faithful Resource Pack team — used as development placeholders under the [Faithful License](./assets/dev/faithful/FAITHFUL_LICENSE.txt). KCraft is non-commercial and open source. Faithful 64x is not affiliated with or endorsed by Mojang Studios.
+
+**Noise**: [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) by Auburn — MIT License.
 
 ---
 

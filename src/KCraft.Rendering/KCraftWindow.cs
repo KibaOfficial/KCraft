@@ -96,7 +96,7 @@ public sealed class KCraftWindow : GameWindow
     _world = new WorldManager();
     _ticker.Player = new Player(new Vector3(8, 80, -10));
     _ticker.SetGetBlock(_world.GetBlock);
-    _textureManager = new TextureManager("assets/dev");
+    _textureManager = new TextureManager("assets/dev/faithful");
 
     InitRenderers();
     InitUi();
