@@ -8,35 +8,35 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using KCraft.Assets;
 using KCraft.World;
-using KCraft.World.Generation;
 using KCraft.Rendering.Ui;
-using KCraft.Blocks;
 
 namespace KCraft.Rendering;
 
 public sealed class KCraftWindow : GameWindow
 {
-  // ── Shader ───────────────────────────────────────────────────────────
+  // ── Shader ────────────────────────────────────────────────────────────
   private int _shader;
-  private int _uModel, _uView, _uProjection, _uTint;
+  private int _uModel, _uView, _uProjection;
 
   // ── World ─────────────────────────────────────────────────────────────
+  private WorldManager _world  = null!;
+  private WorldTicker  _ticker = null!;
+  private Camera       _camera = null!;
+
+  // ── Assets ────────────────────────────────────────────────────────────
   private TextureManager _textureManager = null!;
-  private List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> _chunkMeshes = null!;
-  private Camera _camera = null!;
-  private WorldTicker _ticker = null!;
 
-  // ── Rendering ─────────────────────────────────────────────────────────
-  private DebugOverlay _debug = null!;
-  private ChunkBorderRenderer _chunkBorders = null!;
-  private UiManager _ui = null!;
-  private CrosshairRenderer _crosshair = null!;
+  // ── Renderers ─────────────────────────────────────────────────────────
+  private SkyRenderer            _sky           = null!;
+  private DebugOverlay           _debug         = null!;
+  private ChunkBorderRenderer    _chunkBorders  = null!;
+  private CrosshairRenderer      _crosshair     = null!;
   private BlockHighlightRenderer _blockHighlight = null!;
-  private RaycastHit _lastHit;
-  private SkyRenderer _sky = null!;
+  private UiManager              _ui            = null!;
 
-  // ── Input ─────────────────────────────────────────────────────────────
-  private bool _firstMouse = true;
+  // ── State ─────────────────────────────────────────────────────────────
+  private RaycastHit _lastHit;
+  private bool       _firstMouse = true;
 
   // ── Shaders ───────────────────────────────────────────────────────────
   private const string VertexShaderSource = """
@@ -72,7 +72,7 @@ public sealed class KCraftWindow : GameWindow
     new NativeWindowSettings
     {
       ClientSize = new Vector2i(1280, 720),
-      Title = "KCraft v0.2.0",
+      Title      = "KCraft v0.2.0",
       APIVersion = new Version(4, 6),
     })
   { }
@@ -84,69 +84,17 @@ public sealed class KCraftWindow : GameWindow
     base.OnLoad();
     GL.ClearColor(0f, 0f, 0f, 1f);
 
-    // Assets
+    InitShader();
+    InitGL();
+
+    _camera  = new Camera(new Vector3(8, 65, -10));
+    _ticker  = new WorldTicker();
+    _world   = new WorldManager();
     _textureManager = new TextureManager("assets/dev");
 
-    // Shader
-    int vert = CompileShader(ShaderType.VertexShader, VertexShaderSource);
-    int frag = CompileShader(ShaderType.FragmentShader, FragmentShaderSource);
-    _shader = GL.CreateProgram();
-    GL.AttachShader(_shader, vert);
-    GL.AttachShader(_shader, frag);
-    GL.LinkProgram(_shader);
-    GL.GetProgram(_shader, GetProgramParameterName.LinkStatus, out int linked);
-    if (linked == 0)
-      throw new Exception($"Shader link error: {GL.GetProgramInfoLog(_shader)}");
-    GL.DeleteShader(vert);
-    GL.DeleteShader(frag);
+    InitRenderers();
+    InitUi();
 
-    _uModel = GL.GetUniformLocation(_shader, "uModel");
-    _uView = GL.GetUniformLocation(_shader, "uView");
-    _uProjection = GL.GetUniformLocation(_shader, "uProjection");
-    _uTint = GL.GetUniformLocation(_shader, "uTint");
-
-    // GL State
-    GL.Enable(EnableCap.DepthTest);
-    GL.Enable(EnableCap.CullFace);
-    GL.CullFace(TriangleFace.Back);
-    GL.FrontFace(FrontFaceDirection.Ccw);
-
-    // Camera
-    _camera = new Camera(new Vector3(8, 65, -10));
-
-    // World
-    _ticker = new WorldTicker();
-
-    // Renderers
-    _debug = new DebugOverlay("assets/dev/font_ascii.png");
-    _chunkBorders = new ChunkBorderRenderer();
-    _ui = new UiManager("assets/dev/font_ascii.png");
-    _ui.Layout(new Vector2(Size.X, Size.Y));
-    _sky = new SkyRenderer();
-
-    // UI Events
-    _ui.MainMenu.OnSingleplayer += StartGame;
-    _ui.MainMenu.OnQuit += Close;
-    _ui.PauseMenu.OnResume += ResumeGame;
-    _ui.PauseMenu.OnQuitToTitle += QuitToTitle;
-
-    // World
-    _chunkMeshes = new List<(ChunkMesh, Chunk, Vector3i)>();
-    _crosshair = new CrosshairRenderer("assets/dev/font_ascii.png");
-    _blockHighlight = new BlockHighlightRenderer();
-    var generator = new NoiseWorldGenerator(seed: 42);
-    const int renderRadius = 8;
-    for (int cx = -renderRadius; cx <= renderRadius; cx++)
-      for (int cz = -renderRadius; cz <= renderRadius; cz++)
-      {
-        var chunk = new Chunk();
-        generator.Generate(chunk, cx, cz);
-        var mesh = new ChunkMesh();
-        mesh.Build(chunk);
-        _chunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
-      }
-
-    // Start on main menu
     _ui.SetState(GameState.MainMenu);
     CursorState = CursorState.Normal;
   }
@@ -154,15 +102,14 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnUnload()
   {
     base.OnUnload();
-    foreach (var (mesh, _, _) in _chunkMeshes)
-      mesh.Dispose();
+    _world.Dispose();
     _textureManager.Dispose();
+    _sky.Dispose();
     _debug.Dispose();
     _chunkBorders.Dispose();
-    _ui.Dispose();
     _crosshair.Dispose();
     _blockHighlight.Dispose();
-    _sky.Dispose();
+    _ui.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -187,30 +134,19 @@ public sealed class KCraftWindow : GameWindow
 
     if (_ui.State != GameState.MainMenu)
     {
-      var view = _camera.GetViewMatrix();
-      var projection = Matrix4.CreatePerspectiveFieldOfView(
-        MathHelper.DegreesToRadians(60f), Size.X / (float)Size.Y, 0.1f, 500f);
+      float aspect     = Size.X / (float)Size.Y;
+      var   view       = _camera.GetViewMatrix();
+      var   projection = Matrix4.CreatePerspectiveFieldOfView(
+        MathHelper.DegreesToRadians(60f), aspect, 0.1f, 500f);
 
-      _sky.Draw(_ticker.Time, view, projection, _camera, Size.X / (float)Size.Y);
+      // Sky
+      _sky.Draw(_ticker.Time, view, projection, _camera, aspect);
 
       // 3D World
-      GL.UseProgram(_shader);
-      GL.UniformMatrix4(_uView, false, ref view);
-      GL.UniformMatrix4(_uProjection, false, ref projection);
+      DrawChunks(view, projection);
 
-      foreach (var (mesh, _, chunkPos) in _chunkMeshes)
-      {
-        var chunkModel = Matrix4.CreateTranslation(
-            new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
-        GL.UniformMatrix4(_uModel, false, ref chunkModel);
-        mesh.Draw(_textureManager,
-            GL.GetUniformLocation(_shader, "uTexture"),
-            GL.GetUniformLocation(_shader, "uTint"));
-      }
-
-      _lastHit = BlockRaycaster.Cast(
-        _camera.Position, _camera.Front, 8f, GetBlock);
-
+      // Ray-Cast + Highlight
+      _lastHit = BlockRaycaster.Cast(_camera.Position, _camera.Front, 8f, _world.GetBlock);
       if (_lastHit.Hit)
         _blockHighlight.Draw(_lastHit.BlockPos, view, projection);
 
@@ -218,14 +154,30 @@ public sealed class KCraftWindow : GameWindow
 
       // 2D Overlays
       GL.Clear(ClearBufferMask.DepthBufferBit);
-      _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time, _chunkMeshes.Count, _lastHit, _ticker.Time);
+      _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
+        _world.ChunkCount, _lastHit, _ticker.Time);
       _crosshair.Draw(new Vector2(Size.X, Size.Y));
     }
 
-    // UI (always on top)
     _ui.Draw(new Vector2(Size.X, Size.Y), MouseState.X, MouseState.Y);
-
     SwapBuffers();
+  }
+
+  private void DrawChunks(Matrix4 view, Matrix4 projection)
+  {
+    GL.UseProgram(_shader);
+    GL.UniformMatrix4(_uView,       false, ref view);
+    GL.UniformMatrix4(_uProjection, false, ref projection);
+
+    foreach (var (mesh, _, chunkPos) in _world.ChunkMeshes)
+    {
+      var model = Matrix4.CreateTranslation(
+        new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
+      GL.UniformMatrix4(_uModel, false, ref model);
+      mesh.Draw(_textureManager,
+        GL.GetUniformLocation(_shader, "uTexture"),
+        GL.GetUniformLocation(_shader, "uTint"));
+    }
   }
 
   // ── Input ─────────────────────────────────────────────────────────────
@@ -238,8 +190,8 @@ public sealed class KCraftWindow : GameWindow
     switch (e.Key)
     {
       case Keys.Escape:
-        if (_ui.State == GameState.Playing) PauseGame();
-        else if (_ui.State == GameState.Paused) ResumeGame();
+        if      (_ui.State == GameState.Playing) PauseGame();
+        else if (_ui.State == GameState.Paused)  ResumeGame();
         break;
 
       case Keys.F3 when _ui.State == GameState.Playing:
@@ -265,7 +217,6 @@ public sealed class KCraftWindow : GameWindow
   {
     base.OnMouseMove(e);
     _ui.HandleMouseMove(e.X, e.Y);
-
     if (_ui.State != GameState.Playing) return;
     if (_firstMouse) { _firstMouse = false; return; }
     _camera.ProcessMouse(e.DeltaX, e.DeltaY);
@@ -306,7 +257,53 @@ public sealed class KCraftWindow : GameWindow
     CursorState = CursorState.Normal;
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────
+  // ── Init Helpers ──────────────────────────────────────────────────────
+
+  private void InitShader()
+  {
+    int vert = CompileShader(ShaderType.VertexShader,   VertexShaderSource);
+    int frag = CompileShader(ShaderType.FragmentShader, FragmentShaderSource);
+    _shader = GL.CreateProgram();
+    GL.AttachShader(_shader, vert);
+    GL.AttachShader(_shader, frag);
+    GL.LinkProgram(_shader);
+    GL.GetProgram(_shader, GetProgramParameterName.LinkStatus, out int linked);
+    if (linked == 0) throw new Exception($"Shader link error: {GL.GetProgramInfoLog(_shader)}");
+    GL.DeleteShader(vert);
+    GL.DeleteShader(frag);
+
+    _uModel      = GL.GetUniformLocation(_shader, "uModel");
+    _uView       = GL.GetUniformLocation(_shader, "uView");
+    _uProjection = GL.GetUniformLocation(_shader, "uProjection");
+  }
+
+  private static void InitGL()
+  {
+    GL.Enable(EnableCap.DepthTest);
+    GL.Enable(EnableCap.CullFace);
+    GL.CullFace(TriangleFace.Back);
+    GL.FrontFace(FrontFaceDirection.Ccw);
+  }
+
+  private void InitRenderers()
+  {
+    const string font = "assets/dev/font_ascii.png";
+    _sky            = new SkyRenderer();
+    _debug          = new DebugOverlay(font);
+    _chunkBorders   = new ChunkBorderRenderer();
+    _crosshair      = new CrosshairRenderer(font);
+    _blockHighlight = new BlockHighlightRenderer();
+  }
+
+  private void InitUi()
+  {
+    _ui = new UiManager("assets/dev/font_ascii.png");
+    _ui.Layout(new Vector2(Size.X, Size.Y));
+    _ui.MainMenu.OnSingleplayer += StartGame;
+    _ui.MainMenu.OnQuit         += Close;
+    _ui.PauseMenu.OnResume      += ResumeGame;
+    _ui.PauseMenu.OnQuitToTitle += QuitToTitle;
+  }
 
   private static int CompileShader(ShaderType type, string source)
   {
@@ -314,28 +311,7 @@ public sealed class KCraftWindow : GameWindow
     GL.ShaderSource(shader, source);
     GL.CompileShader(shader);
     GL.GetShader(shader, ShaderParameter.CompileStatus, out int success);
-    if (success == 0)
-      throw new Exception($"Shader compile error: {GL.GetShaderInfoLog(shader)}");
+    if (success == 0) throw new Exception($"Shader compile error: {GL.GetShaderInfoLog(shader)}");
     return shader;
-  }
-
-  private Block? GetBlock(int wx, int wy, int wz)
-  {
-    int cx = (int)MathF.Floor(wx / (float)Chunk.Width);
-    int cz = (int)MathF.Floor(wz / (float)Chunk.Depth);
-
-    foreach (var (_, chunk, chunkPos) in _chunkMeshes)
-    {
-      if (chunkPos.X != cx || chunkPos.Z != cz) continue;
-
-      int lx = wx - cx * Chunk.Width;
-      int ly = wy;
-      int lz = wz - cz * Chunk.Depth;
-
-      if (!chunk.IsInside(lx, ly, lz)) return null;
-      var block = chunk.GetBlock(lx, ly, lz);
-      return block == Block.Air ? null : block;
-    }
-    return null;
   }
 }
