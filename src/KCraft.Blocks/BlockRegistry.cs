@@ -16,4 +16,5 @@ public static class BlockRegistry
     [Block.Dirt]  = new() { TextureTop = "dirt", TextureSide = "dirt", TextureBottom = "dirt" },
     [Block.Stone] = new() { TextureTop = "stone", TextureSide = "stone", TextureBottom = "stone" },
   };
+  public static BlockDefinition Get(Block block) => Definitions[block]; 
 }

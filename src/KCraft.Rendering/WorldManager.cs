@@ -80,6 +80,33 @@ public sealed class WorldManager : IDisposable
     return false;
   }
 
+  public bool PlaceBlock(Vector3i worldPos, Block block)
+  {
+    int centerX = (int)MathF.Floor(worldPos.X / (float)Chunk.Width);
+    int centerZ = (int)MathF.Floor(worldPos.Z / (float)Chunk.Depth);
+
+    for (int i = 0; i < ChunkMeshes.Count; i++)
+    {
+      var (mesh, chunk, chunkPos) = ChunkMeshes[i];
+        if (chunkPos.X != centerX || chunkPos.Z != centerZ) continue;
+
+        int lx = worldPos.X - centerX * Chunk.Width;
+        int ly = worldPos.Y;
+        int lz = worldPos.Z - centerZ * Chunk.Depth;
+
+        if (!chunk.IsInside(lx, ly, lz)) return false;
+        if (chunk.GetBlock(lx, ly, lz) != Block.Air) return false; // schon belegt
+
+        chunk.SetBlock(lx, ly, lz, block);
+        var newMesh = new ChunkMesh();
+        newMesh.Build(chunk);
+        mesh.Dispose();
+        ChunkMeshes[i] = (newMesh, chunk, chunkPos);
+        return true;
+    }
+    return false;
+  }
+
   public void Dispose()
   {
     foreach (var (mesh, _, _) in ChunkMeshes)

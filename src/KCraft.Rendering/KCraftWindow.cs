@@ -189,7 +189,7 @@ public sealed class KCraftWindow : GameWindow
       _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
         _world.ChunkCount, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
       _crosshair.Draw(new Vector2(Size.X, Size.Y));
-      _hotbar.Draw(new Vector2(Size.X, Size.Y));
+      _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
     }
 
     _ui.Draw(new Vector2(Size.X, Size.Y), MouseState.X, MouseState.Y);
@@ -270,10 +270,25 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnMouseDown(MouseButtonEventArgs e)
   {
     base.OnMouseDown(e);
+
     if (_ui.State == GameState.Playing)
     {
       if (e.Button == MouseButton.Left && _lastHit.Hit)
         _world.BreakBlock(_lastHit.BlockPos);
+
+      if (e.Button == MouseButton.Right && _lastHit.Hit)
+      {
+        var placePos = _lastHit.BlockPos + _lastHit.FaceNormal;
+        var playerAabb = _ticker.Player?.BoundingBox;
+        var blockAabb = new AABB(placePos.X, placePos.Y, placePos.Z,
+                                  placePos.X + 1, placePos.Y + 1, placePos.Z + 1);
+        if (playerAabb == null || !playerAabb.Value.Intersects(blockAabb))
+          if (_hotbar.SelectedBlock != Blocks.Block.Air)
+            _world.PlaceBlock(placePos, _hotbar.SelectedBlock);
+      }
+
+      if (e.Button == MouseButton.Middle && _lastHit.Hit)
+        _hotbar.Slots[_hotbar.SelectedSlot] = _lastHit.Block;
     }
     else
     {

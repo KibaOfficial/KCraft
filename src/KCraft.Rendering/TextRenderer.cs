@@ -17,7 +17,7 @@ public sealed class TextRenderer : IDisposable
   private const float CharW = 1.0f / 16.0f;
   private const float CharH = 1.0f / 16.0f;
   private const float GlyphPixels = 8.0f;
-  private const float CharAdvancePixels = 8.0f;
+  private const float CharAdvancePixels = 7.0f;
   private const float SpaceAdvancePixels = 4.0f;
 
   private const string VertSrc = """
@@ -179,7 +179,14 @@ public sealed class TextRenderer : IDisposable
   }
 
   private static float GetAdvance(char c)
-    => c == ' ' ? SpaceAdvancePixels : CharAdvancePixels;
+    => c switch
+    {
+      ' ' => SpaceAdvancePixels,
+      'i' or 'l' or '!' or '.' or ',' or ':' or ';' or '\'' => 4.0f,
+      'I' or '[' or ']' or '(' or ')' or '|' => 5.0f,
+      'f' or 'j' or 'r' or 't' => 6.0f,
+      _ => CharAdvancePixels,
+    };
 
   private static void AddVert(List<float> v, float x, float y,
     float u, float vv, Vector4 c)

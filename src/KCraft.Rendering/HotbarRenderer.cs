@@ -1,6 +1,8 @@
 // Copyright (c) 2026 KibaOfficial
 // All rights reserved.
 
+using KCraft.Assets;
+using KCraft.Blocks;
 using OpenTK.Mathematics;
 
 namespace KCraft.Rendering;
@@ -8,8 +10,8 @@ namespace KCraft.Rendering;
 public sealed class HotbarRenderer : IDisposable
 {
   private readonly TextRenderer _text;
+  private readonly BlockIconRenderer _icon;
 
-  // ── Dimensionen (wie MC) ──────────────────────────────────────────
   private const float SlotSize = 40f;
   private const float SlotPadding = 4f;
   private const float BorderWidth = 2f;
@@ -21,13 +23,22 @@ public sealed class HotbarRenderer : IDisposable
   private static readonly Vector4 HotbarBg = new(0.10f, 0.10f, 0.10f, 0.70f);
 
   public int SelectedSlot { get; set; } = 0;
+  public Block[] Slots { get; } = new Block[9]
+  {
+        Block.Grass, Block.Dirt, Block.Stone,
+        Block.Air,   Block.Air,  Block.Air,
+        Block.Air,   Block.Air,  Block.Air,
+  };
+
+  public Block SelectedBlock => Slots[SelectedSlot];
 
   public HotbarRenderer(string fontPath)
   {
     _text = new TextRenderer(fontPath);
+    _icon = new BlockIconRenderer();
   }
 
-  public void Draw(Vector2 screen)
+  public void Draw(Vector2 screen, TextureManager textures)
   {
     const int slots = 9;
     float totalWidth = slots * SlotSize + (slots - 1) * SlotPadding + 8f;
@@ -41,21 +52,22 @@ public sealed class HotbarRenderer : IDisposable
     {
       float x = hotbarX + i * (SlotSize + SlotPadding);
       bool selected = i == SelectedSlot;
-
       var bg = selected ? SelectedBg : SlotBg;
       var border = selected ? SelectedBorder : SlotBorder;
 
       // Border
       _text.DrawRect(x - BorderWidth, hotbarY - BorderWidth,
-          SlotSize + BorderWidth * 2, SlotSize + BorderWidth * 2,
-          screen, border);
-
-      // Slot Background
+          SlotSize + BorderWidth * 2, SlotSize + BorderWidth * 2, screen, border);
+      // Background
       _text.DrawRect(x, hotbarY, SlotSize, SlotSize, screen, bg);
 
-      // Slot Nummer (1-9)
+      // Block Icon
+      var block = Slots[i];
+      if (block != Block.Air)
+        _icon.Draw(block, x, hotbarY, SlotSize, screen, textures);
+
+      // Slot Nummer
       string num = (i + 1).ToString();
-      float nw = _text.MeasureTextWidth(num, 1f);
       _text.DrawText(num, x + 2f, hotbarY + 2f, screen,
           scale: 1f,
           color: selected
@@ -64,5 +76,9 @@ public sealed class HotbarRenderer : IDisposable
     }
   }
 
-  public void Dispose() => _text.Dispose();
+  public void Dispose()
+  {
+    _text.Dispose();
+    _icon.Dispose();
+  }
 }
