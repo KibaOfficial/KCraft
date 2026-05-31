@@ -100,9 +100,10 @@ public sealed class KCraftWindow : GameWindow
 
     var generator = new NoiseWorldGenerator(seed: 42);
     _chunkMeshes = new List<(ChunkMesh mesh, Vector3 offset)>();
+    int renderRadius = 8; // 17x17 = 289 chunks, each 16x256x16 blocks = 1,048,576 blocks total
 
-    for (int cx = -2; cx <= 2; cx++)
-    for (int cz = -2; cz <= 2; cz++)
+    for (int cx = -renderRadius; cx <= renderRadius; cx++)
+    for (int cz = -renderRadius; cz <= renderRadius; cz++)
     {
       var chunk = new Chunk();
       generator.Generate(chunk, cx, cz);
