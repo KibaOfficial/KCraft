@@ -15,6 +15,7 @@ public sealed class Camera
   public float Sensitivity { get; set; } = 0.1f;
 
   private Vector3 _front = -Vector3.UnitZ;
+  public Vector3 Front => _front;
   private Vector3 _up    = Vector3.UnitY;
   private Vector3 _right = Vector3.UnitX;
 

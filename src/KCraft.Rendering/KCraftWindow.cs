@@ -10,6 +10,7 @@ using KCraft.Assets;
 using KCraft.World;
 using KCraft.World.Generation;
 using KCraft.Rendering.Ui;
+using KCraft.Blocks;
 
 namespace KCraft.Rendering;
 
@@ -22,13 +23,17 @@ public sealed class KCraftWindow : GameWindow
 
   // ── World ─────────────────────────────────────────────────────────────
   private TextureManager _textureManager = null!;
-  private List<(ChunkMesh mesh, Vector3 offset)> _chunkMeshes = null!;
+  private List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> _chunkMeshes = null!;
   private Camera _camera = null!;
 
   // ── Rendering ─────────────────────────────────────────────────────────
   private DebugOverlay _debug = null!;
   private ChunkBorderRenderer _chunkBorders = null!;
   private UiManager _ui = null!;
+  private CrosshairRenderer _crosshair = null!;
+  private BlockHighlightRenderer _blockHighlight = null!;
+  private RaycastHit _lastHit;
+
 
   // ── Input ─────────────────────────────────────────────────────────────
   private bool _firstMouse = true;
@@ -67,7 +72,7 @@ public sealed class KCraftWindow : GameWindow
     new NativeWindowSettings
     {
       ClientSize = new Vector2i(1280, 720),
-      Title      = "KCraft v0.2.0",
+      Title = "KCraft v0.2.0",
       APIVersion = new Version(4, 6),
     })
   { }
@@ -83,7 +88,7 @@ public sealed class KCraftWindow : GameWindow
     _textureManager = new TextureManager("assets/dev");
 
     // Shader
-    int vert = CompileShader(ShaderType.VertexShader,   VertexShaderSource);
+    int vert = CompileShader(ShaderType.VertexShader, VertexShaderSource);
     int frag = CompileShader(ShaderType.FragmentShader, FragmentShaderSource);
     _shader = GL.CreateProgram();
     GL.AttachShader(_shader, vert);
@@ -95,10 +100,10 @@ public sealed class KCraftWindow : GameWindow
     GL.DeleteShader(vert);
     GL.DeleteShader(frag);
 
-    _uModel      = GL.GetUniformLocation(_shader, "uModel");
-    _uView       = GL.GetUniformLocation(_shader, "uView");
+    _uModel = GL.GetUniformLocation(_shader, "uModel");
+    _uView = GL.GetUniformLocation(_shader, "uView");
     _uProjection = GL.GetUniformLocation(_shader, "uProjection");
-    _uTint       = GL.GetUniformLocation(_shader, "uTint");
+    _uTint = GL.GetUniformLocation(_shader, "uTint");
 
     // GL State
     GL.Enable(EnableCap.DepthTest);
@@ -110,30 +115,32 @@ public sealed class KCraftWindow : GameWindow
     _camera = new Camera(new Vector3(8, 65, -10));
 
     // Renderers
-    _debug        = new DebugOverlay("assets/dev/font_ascii.png");
+    _debug = new DebugOverlay("assets/dev/font_ascii.png");
     _chunkBorders = new ChunkBorderRenderer();
-    _ui           = new UiManager("assets/dev/font_ascii.png");
+    _ui = new UiManager("assets/dev/font_ascii.png");
     _ui.Layout(new Vector2(Size.X, Size.Y));
 
     // UI Events
     _ui.MainMenu.OnSingleplayer += StartGame;
-    _ui.MainMenu.OnQuit         += Close;
-    _ui.PauseMenu.OnResume      += ResumeGame;
+    _ui.MainMenu.OnQuit += Close;
+    _ui.PauseMenu.OnResume += ResumeGame;
     _ui.PauseMenu.OnQuitToTitle += QuitToTitle;
 
     // World
-    _chunkMeshes = new List<(ChunkMesh, Vector3)>();
+    _chunkMeshes = new List<(ChunkMesh, Chunk, Vector3i)>();
+    _crosshair = new CrosshairRenderer("assets/dev/font_ascii.png");
+    _blockHighlight = new BlockHighlightRenderer();
     var generator = new NoiseWorldGenerator(seed: 42);
     const int renderRadius = 8;
     for (int cx = -renderRadius; cx <= renderRadius; cx++)
-    for (int cz = -renderRadius; cz <= renderRadius; cz++)
-    {
-      var chunk = new Chunk();
-      generator.Generate(chunk, cx, cz);
-      var mesh = new ChunkMesh();
-      mesh.Build(chunk);
-      _chunkMeshes.Add((mesh, new Vector3(cx * Chunk.Width, 0, cz * Chunk.Depth)));
-    }
+      for (int cz = -renderRadius; cz <= renderRadius; cz++)
+      {
+        var chunk = new Chunk();
+        generator.Generate(chunk, cx, cz);
+        var mesh = new ChunkMesh();
+        mesh.Build(chunk);
+        _chunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
+      }
 
     // Start on main menu
     _ui.SetState(GameState.MainMenu);
@@ -143,12 +150,14 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnUnload()
   {
     base.OnUnload();
-    foreach (var (mesh, _) in _chunkMeshes)
+    foreach (var (mesh, _, _) in _chunkMeshes)
       mesh.Dispose();
     _textureManager.Dispose();
     _debug.Dispose();
     _chunkBorders.Dispose();
     _ui.Dispose();
+    _crosshair.Dispose();
+    _blockHighlight.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -179,24 +188,31 @@ public sealed class KCraftWindow : GameWindow
 
       // 3D World
       GL.UseProgram(_shader);
-      GL.UniformMatrix4(_uView,       false, ref view);
+      GL.UniformMatrix4(_uView, false, ref view);
       GL.UniformMatrix4(_uProjection, false, ref projection);
 
-      foreach (var (mesh, offset) in _chunkMeshes)
+      foreach (var (mesh, _, chunkPos) in _chunkMeshes)
       {
-        var chunkModel = Matrix4.CreateTranslation(offset);
+        var chunkModel = Matrix4.CreateTranslation(
+            new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
         GL.UniformMatrix4(_uModel, false, ref chunkModel);
         mesh.Draw(_textureManager,
-          GL.GetUniformLocation(_shader, "uTexture"),
-          GL.GetUniformLocation(_shader, "uTint"));
+            GL.GetUniformLocation(_shader, "uTexture"),
+            GL.GetUniformLocation(_shader, "uTint"));
       }
 
-      // Chunk borders (3D, before depth clear)
+      _lastHit = BlockRaycaster.Cast(
+        _camera.Position, _camera.Front, 8f, GetBlock);
+
+      if (_lastHit.Hit)
+        _blockHighlight.Draw(_lastHit.BlockPos, view, projection);
+
       _chunkBorders.Draw(_camera, view, projection);
 
       // 2D Overlays
       GL.Clear(ClearBufferMask.DepthBufferBit);
-      _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time, _chunkMeshes.Count);
+      _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time, _chunkMeshes.Count, _lastHit);
+      _crosshair.Draw(new Vector2(Size.X, Size.Y));
     }
 
     // UI (always on top)
@@ -215,8 +231,8 @@ public sealed class KCraftWindow : GameWindow
     switch (e.Key)
     {
       case Keys.Escape:
-        if (_ui.State == GameState.Playing)      PauseGame();
-        else if (_ui.State == GameState.Paused)  ResumeGame();
+        if (_ui.State == GameState.Playing) PauseGame();
+        else if (_ui.State == GameState.Paused) ResumeGame();
         break;
 
       case Keys.F3 when _ui.State == GameState.Playing:
@@ -294,5 +310,25 @@ public sealed class KCraftWindow : GameWindow
     if (success == 0)
       throw new Exception($"Shader compile error: {GL.GetShaderInfoLog(shader)}");
     return shader;
+  }
+
+  private Block? GetBlock(int wx, int wy, int wz)
+  {
+    int cx = (int)MathF.Floor(wx / (float)Chunk.Width);
+    int cz = (int)MathF.Floor(wz / (float)Chunk.Depth);
+
+    foreach (var (_, chunk, chunkPos) in _chunkMeshes)
+    {
+      if (chunkPos.X != cx || chunkPos.Z != cz) continue;
+
+      int lx = wx - cx * Chunk.Width;
+      int ly = wy;
+      int lz = wz - cz * Chunk.Depth;
+
+      if (!chunk.IsInside(lx, ly, lz)) return null;
+      var block = chunk.GetBlock(lx, ly, lz);
+      return block == Block.Air ? null : block;
+    }
+    return null;
   }
 }

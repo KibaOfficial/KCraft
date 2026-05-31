@@ -22,7 +22,7 @@ public sealed class DebugOverlay : IDisposable
     _gpu = GL.GetString(StringName.Renderer) ?? "unknown";
   }
 
-  public void Draw(Vector2 screen, Camera camera, double fps, int chunks)
+  public void Draw(Vector2 screen, Camera camera, double fps, int chunks, RaycastHit lastHit)
   {
     if (!Visible) return;
 
@@ -119,10 +119,10 @@ public sealed class DebugOverlay : IDisposable
     Gap(ref rightY);
     RightLine(ref rightY, lineH, screen,
       ("Targeted Block: ", Blue),
-      ("-", Yellow));
+      (lastHit.Hit ? $"{lastHit.BlockPos.X}, {lastHit.BlockPos.Y}, {lastHit.BlockPos.Z}" : "-", Yellow));
     RightLine(ref rightY, lineH, screen,
       ("Block ID: ", Blue),
-      ("kcraft:unknown", Yellow));
+      (lastHit.Hit ? $"kcraft:{lastHit.Block.ToString().ToLower()}" : "kcraft:unknown", Yellow));
     RightLine(ref rightY, lineH, screen,
       ("Targeted Fluid: ", Blue),
       ("-", Yellow));
@@ -190,14 +190,14 @@ public sealed class DebugOverlay : IDisposable
   private static string Shorten(string text, int maxLength)
     => text.Length <= maxLength ? text : text[..(maxLength - 3)] + "...";
 
-  private static readonly Vector4 White  = new(1.0f, 1.0f, 1.0f, 1.0f);
-  private static readonly Vector4 Gray   = new(0.65f, 0.65f, 0.65f, 1.0f);
-  private static readonly Vector4 Red    = new(1.0f, 0.25f, 0.25f, 1.0f);
+  private static readonly Vector4 White = new(1.0f, 1.0f, 1.0f, 1.0f);
+  private static readonly Vector4 Gray = new(0.65f, 0.65f, 0.65f, 1.0f);
+  private static readonly Vector4 Red = new(1.0f, 0.25f, 0.25f, 1.0f);
   private static readonly Vector4 Orange = new(1.0f, 0.6f, 0.0f, 1.0f);
   private static readonly Vector4 Yellow = new(1.0f, 1.0f, 0.2f, 1.0f);
-  private static readonly Vector4 Green  = new(0.25f, 1.0f, 0.25f, 1.0f);
-  private static readonly Vector4 Cyan   = new(0.0f, 1.0f, 1.0f, 1.0f);
-  private static readonly Vector4 Blue   = new(0.0f, 0.55f, 1.0f, 1.0f);
+  private static readonly Vector4 Green = new(0.25f, 1.0f, 0.25f, 1.0f);
+  private static readonly Vector4 Cyan = new(0.0f, 1.0f, 1.0f, 1.0f);
+  private static readonly Vector4 Blue = new(0.0f, 0.55f, 1.0f, 1.0f);
   private static readonly Vector4 Background = new(0.0f, 0.0f, 0.0f, 0.35f);
 
   public void Dispose() => _text.Dispose();
