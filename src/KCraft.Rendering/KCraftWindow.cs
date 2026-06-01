@@ -44,7 +44,7 @@ public sealed class KCraftWindow : GameWindow
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
   private Vector2 _mousePosition;
-  private const float UiMouseYOffset = 44f;
+  private const float UiMouseYOffset = 0f;
   private bool _firstMouse = true;
   private bool _freeCam = false;
   private float _jumpPressTimer = 0f;
@@ -570,7 +570,13 @@ public sealed class KCraftWindow : GameWindow
     if (data == null) return;
 
     _ticker.Player!.Position = new Vector3(data.PlayerX, data.PlayerY, data.PlayerZ);
+    _camera.Position = _ticker.Player.EyePosition;
     _camera.SetRotation(data.CameraYaw, data.CameraPitch);
+
+    // Chunks um gespeicherte Player-Position vorladen.
+    // Sonst stehst du weit weg, aber WorldManager hat nur Spawn-Chunks geladen.
+    for (int i = 0; i < 300; i++)
+      _world.UpdateChunks(_ticker.Player.Position, loadRadius: 10, unloadRadius: 13);
     _currentGameMode = (GameMode)data.GameMode;
     ApplyGameMode(_currentGameMode);
 
