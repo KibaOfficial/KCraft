@@ -95,13 +95,14 @@ public sealed class BlockIconRenderer : IDisposable
     GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
     var white = Vector3.One;
-    var tint = block == Block.Grass    ? GrassTopTint
-         : block == Block.OakLeaves ? LeavesTint
-         : white;
+    var tint = block == Block.OakLeaves ? LeavesTint : white;
+    var topTint = block == Block.Grass ? GrassTopTint
+                : block == Block.OakLeaves ? LeavesTint
+                : white;
 
     DrawFace(LeftFace(cx, cy, halfW, topH, sideH), def.TextureSide, LeftBrightness, tint, textures);
     DrawFace(RightFace(cx, cy, halfW, topH, sideH), def.TextureSide, RightBrightness, tint, textures);
-    DrawFace(TopFace(cx, cy, halfW, topH), def.TextureTop, TopBrightness, tint, textures);
+    DrawFace(TopFace(cx, cy, halfW, topH), def.TextureTop, TopBrightness, topTint, textures);
 
     GL.Disable(EnableCap.Blend);
     GL.Enable(EnableCap.CullFace);

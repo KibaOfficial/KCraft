@@ -22,6 +22,8 @@ public sealed class KCraftWindow : GameWindow
   private WorldManager _world = null!;
   private WorldTicker _ticker = null!;
   private Camera _camera = null!;
+  private GameModeSwitcher _gameModeSwitcher = null!;
+  private GameMode _currentGameMode = GameMode.Survival;
 
   // ── Assets ────────────────────────────────────────────────────────────
   private TextureManager _textureManager = null!;
@@ -40,6 +42,8 @@ public sealed class KCraftWindow : GameWindow
   private RaycastHit _lastHit;
   private bool _firstMouse = true;
   private bool _freeCam = false;
+  private float _jumpPressTimer = 0f;
+  private bool _jumpPressedLastFrame = false;
 
   // ── Shaders ───────────────────────────────────────────────────────────
   private const string VertexShaderSource = """
@@ -119,6 +123,7 @@ public sealed class KCraftWindow : GameWindow
     _ui.Dispose();
     _hotbar.Dispose();
     _hitbox.Dispose();
+    _gameModeSwitcher.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -129,6 +134,24 @@ public sealed class KCraftWindow : GameWindow
     base.OnUpdateFrame(args);
     if (_ui.State == GameState.Playing)
     {
+      bool jumpNow = KeyboardState.IsKeyDown(Keys.Space);
+      if (jumpNow && !_jumpPressedLastFrame)
+      {
+        if (_jumpPressTimer > 0f)
+        {
+          _ticker.Player?.ToggleFly();
+          _jumpPressTimer = 0f;
+        }
+        else
+        {
+          _jumpPressTimer = 0.3f;
+          _ticker.Player?.Jump(); // nur springen, kein Fly toggle
+        }
+      }
+      if (_jumpPressTimer > 0f)
+        _jumpPressTimer -= (float)args.Time;
+
+      _jumpPressedLastFrame = jumpNow;
       if (_freeCam)
       {
         // alter Flug-Modus
@@ -189,6 +212,7 @@ public sealed class KCraftWindow : GameWindow
       GL.Clear(ClearBufferMask.DepthBufferBit);
       _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
         _world.ChunkCount, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
+      _gameModeSwitcher.Draw(new Vector2(Size.X, Size.Y));
       _crosshair.Draw(new Vector2(Size.X, Size.Y));
       _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
     }
@@ -236,6 +260,13 @@ public sealed class KCraftWindow : GameWindow
         if (!KeyboardState.IsKeyDown(Keys.G))
           _debug.Visible = !_debug.Visible;
         break;
+      case Keys.F4 when _ui.State == GameState.Playing:
+        if (KeyboardState.IsKeyDown(Keys.F3))
+        {
+          _gameModeSwitcher.Visible = true;
+          _gameModeSwitcher.CycleNext();
+        }
+        break;
       case Keys.B when _ui.State == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
           _hitbox.Visible = !_hitbox.Visible;
@@ -253,9 +284,6 @@ public sealed class KCraftWindow : GameWindow
         if (KeyboardState.IsKeyDown(Keys.F3))
           _chunkBorders.Visible = !_chunkBorders.Visible;
         break;
-      case Keys.Space when _ui.State == GameState.Playing:
-        _ticker.Player?.Jump();
-        break;
       case Keys.D1: _hotbar.SelectedSlot = 0; break;
       case Keys.D2: _hotbar.SelectedSlot = 1; break;
       case Keys.D3: _hotbar.SelectedSlot = 2; break;
@@ -265,6 +293,17 @@ public sealed class KCraftWindow : GameWindow
       case Keys.D7: _hotbar.SelectedSlot = 6; break;
       case Keys.D8: _hotbar.SelectedSlot = 7; break;
       case Keys.D9: _hotbar.SelectedSlot = 8; break;
+    }
+  }
+
+  protected override void OnKeyUp(KeyboardKeyEventArgs e)
+  {
+    base.OnKeyUp(e);
+    if (e.Key == Keys.F3 && _gameModeSwitcher.Visible)
+    {
+      _currentGameMode = _gameModeSwitcher.Selected;
+      _gameModeSwitcher.Visible = false;
+      ApplyGameMode(_currentGameMode);
     }
   }
 
@@ -389,6 +428,7 @@ public sealed class KCraftWindow : GameWindow
     _blockHighlight = new BlockHighlightRenderer();
     _hotbar = new HotbarRenderer(font);
     _hitbox = new HitboxRenderer();
+    _gameModeSwitcher = new GameModeSwitcher(font);
   }
 
   private void InitUi()
@@ -409,5 +449,25 @@ public sealed class KCraftWindow : GameWindow
     GL.GetShader(shader, ShaderParameter.CompileStatus, out int success);
     if (success == 0) throw new Exception($"Shader compile error: {GL.GetShaderInfoLog(shader)}");
     return shader;
+  }
+
+  private void ApplyGameMode(GameMode mode)
+  {
+    if (_ticker.Player == null) return;
+    switch (mode)
+    {
+      case GameMode.Survival:
+        _ticker.Player.IsCreative = false;
+        _ticker.Player.IsSpectator = false;
+        break;
+      case GameMode.Creative:
+        _ticker.Player.IsCreative = true;
+        _ticker.Player.IsSpectator = false;
+        break;
+      case GameMode.Spectator:
+        _ticker.Player.IsCreative = false;
+        _ticker.Player.IsSpectator = true;
+        break;
+    }
   }
 }
