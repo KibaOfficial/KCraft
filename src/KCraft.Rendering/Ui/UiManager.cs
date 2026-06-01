@@ -54,6 +54,8 @@ public sealed class UiManager : IDisposable
 
         // Options
         Options.OnBack += () => SetState(PreviousState);
+        Options.OnBenchmark += () => OnBenchmarkStart?.Invoke();
+
 
         // NewWorld
         NewWorld.OnCreate += (name, seed) => OnNewWorldCreate?.Invoke(name, seed);
@@ -93,13 +95,16 @@ public sealed class UiManager : IDisposable
     private void Relayout()
     {
         if (!_hasLayout) return;
-        MainMenu.Layout(_screen);
-        PauseMenu.Layout(_screen);
-        Options.Layout(_screen);
-        NewWorld.Layout(_screen);
-        SelectWorld.Layout(_screen);
-        BenchmarkHud.Layout(_screen);
-        BenchmarkResult.Layout(_screen);
+
+        var virtualScreen = _screen / UiScale.Scale;
+
+        MainMenu.Layout(virtualScreen);
+        PauseMenu.Layout(virtualScreen);
+        Options.Layout(virtualScreen);
+        NewWorld.Layout(virtualScreen);
+        SelectWorld.Layout(virtualScreen);
+        BenchmarkHud.Layout(virtualScreen);
+        BenchmarkResult.Layout(virtualScreen);
     }
 
     public void Draw(Vector2 screen, float mx, float my)

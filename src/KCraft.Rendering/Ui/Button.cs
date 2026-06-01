@@ -30,24 +30,40 @@ public sealed class Button
   }
 
   public bool OnMouseClick(float mouseX, float mouseY)
-    => !Disabled && mouseX >= X && mouseX <= X + Width && mouseY >= Y && mouseY <= Y + Height;
+  {
+    if (Disabled) return false;
+
+    float s = UiScale.Scale;
+    float sx = X * s;
+    float sy = Y * s;
+    float sw = Width * s;
+    float sh = Height * s;
+
+    return mouseX >= sx && mouseX <= sx + sw
+        && mouseY >= sy && mouseY <= sy + sh;
+  }
 
   public void Draw(TextRenderer text, Vector2 screen, bool isHover)
   {
-    float scale = UiScale.Scale;
+    float s = UiScale.Scale;
+
+    float sx = X * s;
+    float sy = Y * s;
+    float sw = Width * s;
+    float sh = Height * s;
+
+    float textScale = s;
     var bg = Disabled ? ColorDisabled : isHover ? ColorHover : ColorNormal;
     var textC = Disabled ? TextDisabled : isHover ? TextHover : TextColor;
 
-    // Border (1px größer)
-    text.DrawRect(X - 1, Y - 1, Width + 2, Height + 2, screen, ColorBorder);
-    // Background
-    text.DrawRect(X, Y, Width, Height, screen, bg);
+    text.DrawRect(sx - s, sy - s, sw + 2 * s, sh + 2 * s, screen, ColorBorder);
+    text.DrawRect(sx, sy, sw, sh, screen, bg);
 
-    // Text zentriert
-    float tw = text.MeasureTextWidth(Text, scale);
-    float tx = X + (Width - tw) / 2f;
-    float ty = Y + (Height - 8f * scale) / 2f;
-    text.DrawText(Text, tx, ty, screen, scale: scale, color: textC);
+    float tw = text.MeasureTextWidth(Text, textScale);
+    float tx = sx + (sw - tw) / 2f;
+    float ty = sy + (sh - 8f * textScale) / 2f;
+
+    text.DrawText(Text, tx, ty, screen, scale: textScale, color: textC);
   }
 
   public void Click() => OnClick?.Invoke();
