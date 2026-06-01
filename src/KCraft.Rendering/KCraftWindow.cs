@@ -77,7 +77,7 @@ public sealed class KCraftWindow : GameWindow
     new NativeWindowSettings
     {
       ClientSize = new Vector2i(1280, 720),
-      Title = "KCraft v0.2.1",
+      Title = "KCraft v0.3.0",
       APIVersion = new Version(4, 6),
     })
   { }
