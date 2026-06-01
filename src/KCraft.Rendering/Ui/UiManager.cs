@@ -21,6 +21,10 @@ public sealed class UiManager : IDisposable
     public GameState State { get; private set; } = GameState.MainMenu;
     public GameState PreviousState { get; private set; } = GameState.MainMenu;
 
+    private Vector2 _screen;
+    private bool _hasLayout;
+    private float _layoutScale = UiScale.Scale;
+
     public event Action<string, int?>? OnNewWorldCreate;
     public event Action<string>? OnWorldSelected;
 
@@ -61,6 +65,7 @@ public sealed class UiManager : IDisposable
     {
         Console.WriteLine($"[UI] State: {state}");
         State = state;
+        Relayout();
     }
 
     private void OpenOptions()
@@ -71,15 +76,28 @@ public sealed class UiManager : IDisposable
 
     public void Layout(Vector2 screen)
     {
-        MainMenu.Layout(screen);
-        PauseMenu.Layout(screen);
-        Options.Layout(screen);
-        NewWorld.Layout(screen);
-        SelectWorld.Layout(screen);
+        _screen = screen;
+        _hasLayout = true;
+        _layoutScale = UiScale.Scale;
+        Relayout();
+    }
+
+    private void Relayout()
+    {
+        if (!_hasLayout) return;
+
+        MainMenu.Layout(_screen);
+        PauseMenu.Layout(_screen);
+        Options.Layout(_screen);
+        NewWorld.Layout(_screen);
+        SelectWorld.Layout(_screen);
     }
 
     public void Draw(Vector2 screen, float mx, float my)
     {
+        if (!_hasLayout || _screen != screen || Math.Abs(_layoutScale - UiScale.Scale) > 0.001f)
+            Layout(screen);
+
         if (State == GameState.MainMenu) MainMenu.Draw(screen, mx, my);
         else if (State == GameState.Paused) PauseMenu.Draw(screen, mx, my);
         else if (State == GameState.Options) Options.Draw(screen, mx, my);

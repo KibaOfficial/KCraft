@@ -30,12 +30,17 @@ public sealed class OptionsScreen : Screen
 
   public override void Layout(Vector2 screen)
   {
-    float cx = screen.X / 2f;
-    float cy = screen.Y / 2f;
+    float panelW = 360f;
+    float panelH = 210f;
+    float panelX = (screen.X - panelW) / 2f;
+    float panelY = (screen.Y - panelH) / 2f;
+    float pad = 24f;
+    float gap = 12f;
+    float buttonW = (panelW - pad * 2f - gap) / 2f;
 
-    Buttons[0].X = cx - 148f; Buttons[0].Y = cy - 20f;
-    Buttons[1].X = cx + 8f; Buttons[1].Y = cy - 20f;
-    Buttons[2].X = cx - 150f; Buttons[2].Y = cy + 40f;
+    Buttons[0].X = panelX + pad; Buttons[0].Y = panelY + 98f; Buttons[0].Width = buttonW;
+    Buttons[1].X = panelX + pad + buttonW + gap; Buttons[1].Y = panelY + 98f; Buttons[1].Width = buttonW;
+    Buttons[2].X = panelX + pad; Buttons[2].Y = panelY + 150f; Buttons[2].Width = panelW - pad * 2f;
   }
 
   public override void Draw(Vector2 screen, float mouseX, float mouseY)
@@ -44,18 +49,20 @@ public sealed class OptionsScreen : Screen
 
     Text.DrawRect(0, 0, screen.X, screen.Y, screen, Bg);
 
-    float pw = 340f, ph = 180f;
+    float scale = UiScale.Scale;
+    float pw = 360f, ph = 210f;
     float px = (screen.X - pw) / 2f;
-    float py = (screen.Y - ph) / 2f - 20f;
+    float py = (screen.Y - ph) / 2f;
     Text.DrawRect(px, py, pw, ph, screen, Panel);
 
     string title = "Options";
-    float tw = Text.MeasureTextWidth(title, 2f);
-    Text.DrawText(title, (screen.X - tw) / 2f, py + 16f, screen, color: Title);
+    float titleScale = scale * 1.5f;
+    float tw = Text.MeasureTextWidth(title, titleScale);
+    Text.DrawText(title, (screen.X - tw) / 2f, py + 18f, screen, scale: titleScale, color: Title);
 
     string scaleText = $"GUI Scale: {(int)UiScale.Scale}x";
-    float stw = Text.MeasureTextWidth(scaleText, 2f);
-    Text.DrawText(scaleText, (screen.X - stw) / 2f, py + 50f, screen, color: Title);
+    float stw = Text.MeasureTextWidth(scaleText, scale);
+    Text.DrawText(scaleText, (screen.X - stw) / 2f, py + 62f, screen, scale: scale, color: Title);
 
     foreach (var btn in Buttons)
       btn.Draw(Text, screen, btn.OnMouseClick(mouseX, mouseY));

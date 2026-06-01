@@ -117,20 +117,39 @@ public sealed class TextInput
 
     // Text oder Placeholder
     bool hasValue = Value.Length > 0;
-    string display = hasValue ? Value : Placeholder;
+    float availableWidth = Math.Max(0f, Width - pad * 2f - 4f);
+    string display = hasValue
+      ? FitTextFromEnd(text, Value, scale, availableWidth)
+      : FitTextFromStart(text, Placeholder, scale, availableWidth);
     var col = hasValue ? TextColor : PlaceholderColor;
 
     float textY = Y + (Height - 8f * scale) / 2f;
     text.DrawText(display, X + pad, textY, screen, scale: scale, color: col);
 
     // Cursor
-    if (IsFocused && _cursorVisible && hasValue || IsFocused && _cursorVisible && !hasValue)
+    if (IsFocused && _cursorVisible)
     {
       float cursorX = X + pad + (hasValue
-          ? text.MeasureTextWidth(Value, scale)
+          ? text.MeasureTextWidth(display, scale)
           : 0f);
       float cursorH = 8f * scale;
       text.DrawRect(cursorX, textY, border, cursorH, screen, CursorColor);
     }
+  }
+
+  private static string FitTextFromStart(TextRenderer text, string value, float scale, float maxWidth)
+  {
+    while (value.Length > 0 && text.MeasureTextWidth(value, scale) > maxWidth)
+      value = value[..^1];
+
+    return value;
+  }
+
+  private static string FitTextFromEnd(TextRenderer text, string value, float scale, float maxWidth)
+  {
+    while (value.Length > 0 && text.MeasureTextWidth(value, scale) > maxWidth)
+      value = value[1..];
+
+    return value;
   }
 }

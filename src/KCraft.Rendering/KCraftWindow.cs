@@ -41,6 +41,8 @@ public sealed class KCraftWindow : GameWindow
 
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
+  private Vector2 _mousePosition;
+  private const float UiMouseYOffset = 44f;
   private bool _firstMouse = true;
   private bool _freeCam = false;
   private float _jumpPressTimer = 0f;
@@ -219,7 +221,10 @@ public sealed class KCraftWindow : GameWindow
       _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
     }
 
-    _ui.Draw(new Vector2(Size.X, Size.Y), MouseState.X, MouseState.Y);
+    if (CursorState == CursorState.Normal)
+      _mousePosition = ToUiMousePosition(MousePosition);
+
+    _ui.Draw(new Vector2(Size.X, Size.Y), _mousePosition.X, _mousePosition.Y);
     SwapBuffers();
   }
 
@@ -336,14 +341,18 @@ public sealed class KCraftWindow : GameWindow
     else
     {
       if (e.Button == MouseButton.Left)
-        _ui.HandleClick(MouseState.X, MouseState.Y);
+      {
+        _mousePosition = ToUiMousePosition(MousePosition);
+        _ui.HandleClick(_mousePosition.X, _mousePosition.Y);
+      }
     }
   }
 
   protected override void OnMouseMove(MouseMoveEventArgs e)
   {
     base.OnMouseMove(e);
-    _ui.HandleMouseMove(e.X, e.Y);
+    _mousePosition = ToUiMousePosition(new Vector2(e.X, e.Y));
+    _ui.HandleMouseMove(_mousePosition.X, _mousePosition.Y);
     if (_ui.State != GameState.Playing) return;
     if (_firstMouse) { _firstMouse = false; return; }
     _camera.ProcessMouse(e.DeltaX, e.DeltaY);
@@ -352,9 +361,15 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnMouseWheel(MouseWheelEventArgs e)
   {
     base.OnMouseWheel(e);
-    if (_ui.State != GameState.Playing) return;
-    int delta = e.OffsetY > 0 ? -1 : 1;
-    _hotbar.SelectedSlot = (_hotbar.SelectedSlot + delta + 9) % 9;
+    if (_ui.State == GameState.Playing)
+    {
+      int delta = e.OffsetY > 0 ? -1 : 1;
+      _hotbar.SelectedSlot = (_hotbar.SelectedSlot + delta + 9) % 9;
+    }
+    else if (_ui.State == GameState.SelectWorld)
+    {
+      _ui.SelectWorld.HandleScroll(e.OffsetY);
+    }
   }
 
   protected override void OnResize(ResizeEventArgs e)
@@ -472,6 +487,9 @@ public sealed class KCraftWindow : GameWindow
     _ui.OnWorldSelected += LoadAndStartWorld;
     _ui.OnNewWorldCreate += CreateAndStartWorld;
   }
+
+  private static Vector2 ToUiMousePosition(Vector2 mouse)
+    => new(mouse.X, mouse.Y + UiMouseYOffset);
 
   private static int CompileShader(ShaderType type, string source)
   {

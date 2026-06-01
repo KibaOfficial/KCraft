@@ -77,59 +77,52 @@ public sealed class NewWorldScreen : Screen
 
   public override void Layout(Vector2 screen)
   {
-    float cx = screen.X / 2f;
-    float cy = screen.Y / 2f;
-    float inputW = 300f;
-    float inputX = cx - inputW / 2f;
+    float pw = 380f;
+    float ph = 300f;
+    float px = (screen.X - pw) / 2f;
+    float py = (screen.Y - ph) / 2f;
+    float iw = pw - 40f;
+    float ix = px + 20f;
 
-    _nameInput.X = inputX; _nameInput.Y = cy - 60f;
-    _nameInput.Width = inputW;
+    _nameInput.X = ix; _nameInput.Y = py + 74f; _nameInput.Width = iw; _nameInput.Height = 28f;
+    _seedInput.X = ix; _seedInput.Y = py + 136f; _seedInput.Width = iw; _seedInput.Height = 28f;
 
-    _seedInput.X = inputX; _seedInput.Y = cy;
-    _seedInput.Width = inputW;
-
-    Buttons[0].X = cx - 150f; Buttons[0].Y = cy + 60f;  // Create
-    Buttons[1].X = cx - 150f; Buttons[1].Y = cy + 110f; // Back
+    Buttons[0].X = ix; Buttons[0].Y = py + 202f; Buttons[0].Width = iw; // Create
+    Buttons[1].X = ix; Buttons[1].Y = py + 248f; Buttons[1].Width = iw; // Back
   }
 
   public override void Draw(Vector2 screen, float mouseX, float mouseY)
   {
     float scale = UiScale.Scale;
-
-    // Vollbild Hintergrund
-    Text.DrawRect(0, 0, screen.X, screen.Y, screen, Bg);
-
-    // Panel
-    float pw = 360f, ph = 260f;
+    float pw = 380f;
+    float ph = 300f;
     float px = (screen.X - pw) / 2f;
-    float py = (screen.Y - ph) / 2f - 20f;
+    float py = (screen.Y - ph) / 2f;
+    float ix = px + 20f;
+
+    Text.DrawRect(0, 0, screen.X, screen.Y, screen, Bg);
     Text.DrawRect(px, py, pw, ph, screen, Panel);
 
     // Titel
-    string titleStr = "Create New World";
-    float tw = Text.MeasureTextWidth(titleStr, scale * 1.5f);
-    Text.DrawText(titleStr, (screen.X - tw) / 2f, py + 16f,
-        screen, scale: scale * 1.5f, color: Title);
+    string t = "Create New World";
+    float tw = Text.MeasureTextWidth(t, scale * 1.5f);
+    Text.DrawText(t, px + (pw - tw) / 2f, py + 16f, screen, scale: scale * 1.5f, color: Title);
 
-    // World Name Label
-    Text.DrawText("World Name", _nameInput.X, _nameInput.Y - 14f * scale,
-        screen, scale: scale, color: Label);
+    // Labels
+    Text.DrawText("World Name", ix, py + 58f, screen, scale: scale, color: Label);
     _nameInput.Draw(Text, screen);
 
-    // Seed Label
-    Text.DrawText("Seed", _seedInput.X, _seedInput.Y - 14f * scale,
-        screen, scale: scale, color: Label);
+    Text.DrawText("Seed", ix, py + 120f, screen, scale: scale, color: Label);
     _seedInput.Draw(Text, screen);
 
     // Error
     if (!string.IsNullOrEmpty(_errorMessage))
     {
       float ew = Text.MeasureTextWidth(_errorMessage, scale);
-      Text.DrawText(_errorMessage, (screen.X - ew) / 2f,
-          Buttons[0].Y - 18f * scale, screen, scale: scale, color: ErrorCol);
+      Text.DrawText(_errorMessage, px + (pw - ew) / 2f, py + 176f,
+          screen, scale: scale, color: ErrorCol);
     }
 
-    // Buttons
     foreach (var btn in Buttons)
       btn.Draw(Text, screen, btn.OnMouseClick(mouseX, mouseY));
   }

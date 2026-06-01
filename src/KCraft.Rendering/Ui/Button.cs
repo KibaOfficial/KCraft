@@ -34,6 +34,7 @@ public sealed class Button
 
   public void Draw(TextRenderer text, Vector2 screen, bool isHover)
   {
+    float scale = UiScale.Scale;
     var bg = Disabled ? ColorDisabled : isHover ? ColorHover : ColorNormal;
     var textC = Disabled ? TextDisabled : isHover ? TextHover : TextColor;
 
@@ -43,10 +44,10 @@ public sealed class Button
     text.DrawRect(X, Y, Width, Height, screen, bg);
 
     // Text zentriert
-    float tw = text.MeasureTextWidth(Text);
+    float tw = text.MeasureTextWidth(Text, scale);
     float tx = X + (Width - tw) / 2f;
-    float ty = Y + (Height - 16f) / 2f; // 16 = Glyph-Höhe bei scale=2
-    text.DrawText(Text, tx, ty, screen, color: textC);
+    float ty = Y + (Height - 8f * scale) / 2f;
+    text.DrawText(Text, tx, ty, screen, scale: scale, color: textC);
   }
 
   public void Click() => OnClick?.Invoke();
