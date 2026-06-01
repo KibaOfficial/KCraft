@@ -20,7 +20,9 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
     _noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
     _noise.SetFractalType(FastNoiseLite.FractalType.FBm);
     _noise.SetFractalOctaves(4);
-    _noise.SetFractalLacunarity(0.005f);
+    _noise.SetFractalLacunarity(2.0f);   // war 0.005f
+    _noise.SetFractalGain(0.5f);
+    _noise.SetFrequency(0.003f);
   }
 
   public void Generate(Chunk chunk, int chunkX = 0, int chunkZ = 0)

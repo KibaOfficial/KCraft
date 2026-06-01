@@ -169,6 +169,10 @@ public sealed class KCraftWindow : GameWindow
 
       _ticker.Update((float)args.Time);
 
+      // DCL — Chunks um Player aktualisieren
+      if (_ticker.Player != null)
+        _world.UpdateChunks(_ticker.Player.Position);
+
       if (!_freeCam && _ticker.Player != null)
       {
         float alpha = _ticker.Accumulator / (1f / WorldTime.TicksPerSecond);
