@@ -12,15 +12,16 @@ public sealed class WorldManager : IDisposable
 {
   // ── Config ────────────────────────────────────────────────────────────
   public const int RenderRadius = 8;
-  public const int Seed = 42;
+  public int Seed { get; private set; } = 42;
 
   // ── Data ──────────────────────────────────────────────────────────────
   public List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> ChunkMeshes { get; } = [];
   public int ChunkCount => ChunkMeshes.Count;
 
-  public WorldManager()
+  public WorldManager(int seed = 42)
   {
-    var generator = new NoiseWorldGenerator(seed: Seed);
+    Seed = seed;
+    var generator = new NoiseWorldGenerator(seed: seed);
     for (int cx = -RenderRadius; cx <= RenderRadius; cx++)
       for (int cz = -RenderRadius; cz <= RenderRadius; cz++)
       {
@@ -88,21 +89,21 @@ public sealed class WorldManager : IDisposable
     for (int i = 0; i < ChunkMeshes.Count; i++)
     {
       var (mesh, chunk, chunkPos) = ChunkMeshes[i];
-        if (chunkPos.X != centerX || chunkPos.Z != centerZ) continue;
+      if (chunkPos.X != centerX || chunkPos.Z != centerZ) continue;
 
-        int lx = worldPos.X - centerX * Chunk.Width;
-        int ly = worldPos.Y;
-        int lz = worldPos.Z - centerZ * Chunk.Depth;
+      int lx = worldPos.X - centerX * Chunk.Width;
+      int ly = worldPos.Y;
+      int lz = worldPos.Z - centerZ * Chunk.Depth;
 
-        if (!chunk.IsInside(lx, ly, lz)) return false;
-        if (chunk.GetBlock(lx, ly, lz) != Block.Air) return false; // schon belegt
+      if (!chunk.IsInside(lx, ly, lz)) return false;
+      if (chunk.GetBlock(lx, ly, lz) != Block.Air) return false; // schon belegt
 
-        chunk.SetBlock(lx, ly, lz, block);
-        var newMesh = new ChunkMesh();
-        newMesh.Build(chunk);
-        mesh.Dispose();
-        ChunkMeshes[i] = (newMesh, chunk, chunkPos);
-        return true;
+      chunk.SetBlock(lx, ly, lz, block);
+      var newMesh = new ChunkMesh();
+      newMesh.Build(chunk);
+      mesh.Dispose();
+      ChunkMeshes[i] = (newMesh, chunk, chunkPos);
+      return true;
     }
     return false;
   }

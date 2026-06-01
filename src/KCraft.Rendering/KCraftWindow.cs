@@ -24,6 +24,7 @@ public sealed class KCraftWindow : GameWindow
   private Camera _camera = null!;
   private GameModeSwitcher _gameModeSwitcher = null!;
   private GameMode _currentGameMode = GameMode.Survival;
+  private string _currentWorldName = "default";
 
   // ── Assets ────────────────────────────────────────────────────────────
   private TextureManager _textureManager = null!;
@@ -134,6 +135,7 @@ public sealed class KCraftWindow : GameWindow
     base.OnUpdateFrame(args);
     if (_ui.State == GameState.Playing)
     {
+      _ui.Update((float)args.Time);
       bool jumpNow = KeyboardState.IsKeyDown(Keys.Space);
       if (jumpNow && !_jumpPressedLastFrame)
       {
@@ -185,7 +187,7 @@ public sealed class KCraftWindow : GameWindow
     base.OnRenderFrame(args);
     GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-    if (_ui.State != GameState.MainMenu)
+    if (_ui.State == GameState.Playing || _ui.State == GameState.Paused)
     {
       float aspect = Size.X / (float)Size.Y;
       var view = _camera.GetViewMatrix();
@@ -248,6 +250,7 @@ public sealed class KCraftWindow : GameWindow
   {
     base.OnKeyDown(e);
     if (e.IsRepeat) return;
+    _ui.HandleKeyDown(e.Key, KeyboardState.IsKeyDown(Keys.LeftShift));
 
     switch (e.Key)
     {
@@ -400,7 +403,7 @@ public sealed class KCraftWindow : GameWindow
     var data = new WorldSaveData
     {
       WorldName = "default", // später aus New World Screen
-      Seed = WorldManager.Seed,
+      Seed = _world.Seed,
       PlayerX = _ticker.Player.Position.X,
       PlayerY = _ticker.Player.Position.Y,
       PlayerZ = _ticker.Player.Position.Z,
@@ -408,12 +411,13 @@ public sealed class KCraftWindow : GameWindow
       CameraPitch = _camera.Pitch,
       GameMode = (int)_currentGameMode,
       TotalTicks = _ticker.Time.TotalTicks,
+      LastPlayed = DateTime.Now,
     };
 
     var chunks = _world.ChunkMeshes
         .Select(c => (c.chunk, c.chunkPos.X, c.chunkPos.Z));
 
-    WorldSaveManager.Save("default", data, chunks);
+    WorldSaveManager.Save(_currentWorldName, data, chunks);
   }
 
   // ── Init Helpers ──────────────────────────────────────────────────────
@@ -462,10 +466,11 @@ public sealed class KCraftWindow : GameWindow
   {
     _ui = new UiManager("assets/dev/font_ascii.png");
     _ui.Layout(new Vector2(Size.X, Size.Y));
-    _ui.MainMenu.OnSingleplayer += StartGame;
     _ui.MainMenu.OnQuit += Close;
     _ui.PauseMenu.OnResume += ResumeGame;
     _ui.PauseMenu.OnQuitToTitle += SaveAndQuit;
+    _ui.OnWorldSelected += LoadAndStartWorld;
+    _ui.OnNewWorldCreate += CreateAndStartWorld;
   }
 
   private static int CompileShader(ShaderType type, string source)
@@ -498,25 +503,29 @@ public sealed class KCraftWindow : GameWindow
     }
   }
 
-  private void LoadWorld()
+  protected override void OnTextInput(TextInputEventArgs e)
   {
-    var (data, chunks) = WorldSaveManager.Load("default");
+    base.OnTextInput(e);
+    _ui.HandleTextInput((char)e.Unicode);
+  }
+
+  private void LoadWorld(string name = "default")
+  {
+    _currentWorldName = name;
+    var (data, chunks) = WorldSaveManager.Load(name); // ← name statt "default"
     if (data == null) return;
 
-    // Player Position
     _ticker.Player!.Position = new Vector3(data.PlayerX, data.PlayerY, data.PlayerZ);
     _camera.SetRotation(data.CameraYaw, data.CameraPitch);
     _currentGameMode = (GameMode)data.GameMode;
     ApplyGameMode(_currentGameMode);
 
-    // Chunks laden
     foreach (var ((cx, cz), rawData) in chunks)
     {
       for (int i = 0; i < _world.ChunkMeshes.Count; i++)
       {
         var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
         if (chunkPos.X != cx || chunkPos.Z != cz) continue;
-
         chunk.LoadRawBlocks(rawData);
         var newMesh = new ChunkMesh();
         newMesh.Build(chunk);
@@ -525,5 +534,31 @@ public sealed class KCraftWindow : GameWindow
         break;
       }
     }
+  }
+
+  private void LoadAndStartWorld(string name)
+  {
+    LoadWorld(name);
+    _ui.SetState(GameState.Playing);
+    CursorState = CursorState.Grabbed;
+    _firstMouse = true;
+  }
+
+  private void CreateAndStartWorld(string name, int? seed)
+  {
+    _currentWorldName = name;
+    int actualSeed = seed ?? Random.Shared.Next();
+
+    _world.Dispose();
+    _world = new WorldManager(seed: actualSeed);
+    _ticker.SetGetBlock(_world.GetBlock);
+    _ticker.Player!.Position = new Vector3(8, 80, -10);
+    _camera.SetRotation(-90f, 0f);
+    _currentGameMode = GameMode.Survival;
+    ApplyGameMode(_currentGameMode);
+
+    _ui.SetState(GameState.Playing);
+    CursorState = CursorState.Grabbed;
+    _firstMouse = true;
   }
 }

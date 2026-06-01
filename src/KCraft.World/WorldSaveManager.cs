@@ -73,6 +73,13 @@ public static class WorldSaveManager
     return (data, chunks);
   }
 
+  public static void Delete(string worldName)
+  {
+    var path = GetWorldPath(worldName);
+    if (Directory.Exists(path))
+      Directory.Delete(path, recursive: true);
+  }
+
   public static bool WorldExists(string worldName)
       => File.Exists(Path.Combine(GetWorldPath(worldName), "world.json"));
 }

@@ -14,4 +14,5 @@ public sealed class WorldSaveData
   public float CameraPitch { get; set; } = 0f;
   public int GameMode { get; set; } = 0; // 0=Survival, 1=Creative, 2=Spectator
   public long TotalTicks { get; set; } = 6000;
+  public DateTime LastPlayed { get; set; } = DateTime.Now;
 }
