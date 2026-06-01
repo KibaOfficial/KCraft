@@ -19,43 +19,43 @@ public sealed class ChunkMesh : IDisposable
   public void Build(Chunk chunk)
   {
     _facesByTexture.Clear();
-    
-    for (int x = 0; x < Chunk.Width;  x++)
-    for (int y = 0; y < Chunk.Height; y++)
-    for (int z = 0; z < Chunk.Depth;  z++)
-    {
-      var block = chunk.GetBlock(x, y, z);
-      if (block == Block.Air) continue;
 
-      var def = BlockRegistry.Definitions.TryGetValue(block, out var d) ? d : new BlockDefinition();
-
-      foreach (FaceDirection face in Enum.GetValues<FaceDirection>())
-      {
-        if (!FaceVisibility.IsVisible(chunk, x, y, z, face)) continue;
-
-        string texName = face switch
+    for (int x = 0; x < Chunk.Width; x++)
+      for (int y = 0; y < Chunk.Height; y++)
+        for (int z = 0; z < Chunk.Depth; z++)
         {
-          FaceDirection.Up    => def.TextureTop,
-          FaceDirection.Down => def.TextureBottom,
-          _                    => def.TextureSide,
-        };
+          var block = chunk.GetBlock(x, y, z);
+          if (block == Block.Air) continue;
 
-        if (!_facesByTexture.TryGetValue(texName, out var group))
-        {
-          group = (new List<float>(), new List<uint>(), 0);
-          _facesByTexture[texName] = group;
+          var def = BlockRegistry.Definitions.TryGetValue(block, out var d) ? d : new BlockDefinition();
+
+          foreach (FaceDirection face in Enum.GetValues<FaceDirection>())
+          {
+            if (!FaceVisibility.IsVisible(chunk, x, y, z, face)) continue;
+
+            string texName = face switch
+            {
+              FaceDirection.Up => def.TextureTop,
+              FaceDirection.Down => def.TextureBottom,
+              _ => def.TextureSide,
+            };
+
+            if (!_facesByTexture.TryGetValue(texName, out var group))
+            {
+              group = (new List<float>(), new List<uint>(), 0);
+              _facesByTexture[texName] = group;
+            }
+
+            var verts = group.verts;
+            var inds = group.indices;
+            var offset = group.offset;
+            AddFace(verts, inds, ref offset, x, y, z, face);
+            _facesByTexture[texName] = (verts, inds, offset);
+          }
         }
 
-        var verts  = group.verts;
-        var inds   = group.indices;
-        var offset = group.offset;
-        AddFace(verts, inds, ref offset, x, y, z, face);
-        _facesByTexture[texName] = (verts, inds, offset);
-      }
-    }
-
     // Alles zusammenmergen für Upload
-    var allVerts   = new List<float>();
+    var allVerts = new List<float>();
     var allIndices = new List<uint>();
     uint globalOffset = 0;
 
@@ -86,6 +86,9 @@ public sealed class ChunkMesh : IDisposable
       // Grass Top bekommt grünen Tint
       if (texName == "grass_block_top")
         GL.Uniform3(uTintLocation, 0.48f, 0.74f, 0.36f);
+      // Oak Leaves bekommt auch grünen Tint (etwas dunkler als Grass)
+      else if (texName == "oak_leaves")
+        GL.Uniform3(uTintLocation, 0.38f, 0.62f, 0.25f);
       else
         GL.Uniform3(uTintLocation, 1.0f, 1.0f, 1.0f);
 
@@ -104,25 +107,25 @@ public sealed class ChunkMesh : IDisposable
     verts.AddRange([v2.x, v2.y, v2.z, 1.0f, 1.0f]);
     verts.AddRange([v3.x, v3.y, v3.z, 0.0f, 1.0f]);
 
-    indices.AddRange([offset, offset+2, offset+1, offset, offset+3, offset+2]);
+    indices.AddRange([offset, offset + 2, offset + 1, offset, offset + 3, offset + 2]);
     offset += 4;
   }
 
-  private static ((float x,float y,float z) v0, (float x,float y,float z) v1,
-                   (float x,float y,float z) v2, (float x,float y,float z) v3)
+  private static ((float x, float y, float z) v0, (float x, float y, float z) v1,
+                   (float x, float y, float z) v2, (float x, float y, float z) v3)
     GetFaceVertices(int x, int y, int z, FaceDirection face)
   {
     float x0 = x, y0 = y, z0 = z;
-    float x1 = x+1, y1 = y+1, z1 = z+1;
+    float x1 = x + 1, y1 = y + 1, z1 = z + 1;
 
     return face switch
     {
-      FaceDirection.North => ((x0,y0,z0), (x1,y0,z0), (x1,y1,z0), (x0,y1,z0)),
-      FaceDirection.South => ((x1,y0,z1), (x0,y0,z1), (x0,y1,z1), (x1,y1,z1)),
-      FaceDirection.East  => ((x1,y0,z0), (x1,y0,z1), (x1,y1,z1), (x1,y1,z0)),
-      FaceDirection.West  => ((x0,y0,z1), (x0,y0,z0), (x0,y1,z0), (x0,y1,z1)),
-      FaceDirection.Up    => ((x0,y1,z0), (x1,y1,z0), (x1,y1,z1), (x0,y1,z1)),
-      FaceDirection.Down  => ((x0,y0,z1), (x1,y0,z1), (x1,y0,z0), (x0,y0,z0)),
+      FaceDirection.North => ((x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)),
+      FaceDirection.South => ((x1, y0, z1), (x0, y0, z1), (x0, y1, z1), (x1, y1, z1)),
+      FaceDirection.East => ((x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0)),
+      FaceDirection.West => ((x0, y0, z1), (x0, y0, z0), (x0, y1, z0), (x0, y1, z1)),
+      FaceDirection.Up => ((x0, y1, z0), (x1, y1, z0), (x1, y1, z1), (x0, y1, z1)),
+      FaceDirection.Down => ((x0, y0, z1), (x1, y0, z1), (x1, y0, z0), (x0, y0, z0)),
       _ => throw new ArgumentOutOfRangeException(nameof(face), face, null)
     };
   }

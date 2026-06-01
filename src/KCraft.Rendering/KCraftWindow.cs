@@ -67,6 +67,7 @@ public sealed class KCraftWindow : GameWindow
     void main()
     {
       vec4 color = texture(uTexture, vTexCoord);
+      if (color.a < 0.1) discard;
       FragColor = vec4(color.rgb * uTint * uAmbient, color.a);
     }
     """;

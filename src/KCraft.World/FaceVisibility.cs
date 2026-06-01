@@ -7,6 +7,14 @@ namespace KCraft.World;
 
 public static class FaceVisibility
 {
+  // Blöcke die transparent sind — Faces dahinter werden gerendert
+  private static bool IsTransparent(Block block) => block switch
+  {
+    Block.Air => true,
+    Block.OakLeaves => true,
+    _ => false,
+  };
+
   public static bool IsVisible(Chunk chunk, int x, int y, int z, FaceDirection face)
   {
     var (nx, ny, nz) = face switch
@@ -20,7 +28,7 @@ public static class FaceVisibility
       _ => throw new ArgumentOutOfRangeException(nameof(face), face, null)
     };
 
-    if (!chunk.IsInside(nx, ny, nz)) return true; // Chunk-Grenze = sichtbar
-    return chunk.GetBlock(nx, ny, nz) == Block.Air; // Luft = sichtbar, sonst nicht
+    if (!chunk.IsInside(nx, ny, nz)) return true;
+    return IsTransparent(chunk.GetBlock(nx, ny, nz));
   }
 }

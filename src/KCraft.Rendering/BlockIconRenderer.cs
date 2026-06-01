@@ -16,6 +16,7 @@ public sealed class BlockIconRenderer : IDisposable
   private const float TopBrightness = 1.000f;
   private const float LeftBrightness = 0.800f;
   private const float RightBrightness = 0.608f;
+  private static readonly Vector3 LeavesTint = new(0.38f, 0.62f, 0.25f);
 
   private const string VertSrc = """
         #version 410 core
@@ -94,11 +95,13 @@ public sealed class BlockIconRenderer : IDisposable
     GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
     var white = Vector3.One;
-    var grassTopTint = block == Block.Grass ? GrassTopTint : white;
+    var tint = block == Block.Grass    ? GrassTopTint
+         : block == Block.OakLeaves ? LeavesTint
+         : white;
 
-    DrawFace(LeftFace(cx, cy, halfW, topH, sideH), def.TextureSide, LeftBrightness, white, textures);
-    DrawFace(RightFace(cx, cy, halfW, topH, sideH), def.TextureSide, RightBrightness, white, textures);
-    DrawFace(TopFace(cx, cy, halfW, topH), def.TextureTop, TopBrightness, grassTopTint, textures);
+    DrawFace(LeftFace(cx, cy, halfW, topH, sideH), def.TextureSide, LeftBrightness, tint, textures);
+    DrawFace(RightFace(cx, cy, halfW, topH, sideH), def.TextureSide, RightBrightness, tint, textures);
+    DrawFace(TopFace(cx, cy, halfW, topH), def.TextureTop, TopBrightness, tint, textures);
 
     GL.Disable(EnableCap.Blend);
     GL.Enable(EnableCap.CullFace);

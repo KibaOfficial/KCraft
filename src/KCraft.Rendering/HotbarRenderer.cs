@@ -26,9 +26,9 @@ public sealed class HotbarRenderer : IDisposable
   public int SelectedSlot { get; set; } = 0;
   public Block[] Slots { get; } = new Block[9]
   {
-        Block.Grass, Block.Dirt, Block.Stone,
-        Block.Air,   Block.Air,  Block.Air,
-        Block.Air,   Block.Air,  Block.Air,
+    Block.Grass, Block.Dirt, Block.Stone,
+    Block.OakLog, Block.OakLeaves, Block.Sand,
+    Block.OakPlanks, Block.Air, Block.Air,
   };
 
   public Block SelectedBlock => Slots[SelectedSlot];
