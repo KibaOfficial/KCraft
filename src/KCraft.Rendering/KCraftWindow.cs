@@ -365,6 +365,9 @@ public sealed class KCraftWindow : GameWindow
 
   private void StartGame()
   {
+    if (WorldSaveManager.WorldExists("default"))
+      LoadWorld();
+
     _ui.SetState(GameState.Playing);
     CursorState = CursorState.Grabbed;
     _firstMouse = true;
@@ -383,10 +386,34 @@ public sealed class KCraftWindow : GameWindow
     _firstMouse = true;
   }
 
-  private void QuitToTitle()
+  private void SaveAndQuit()
   {
+    SaveWorld();
     _ui.SetState(GameState.MainMenu);
     CursorState = CursorState.Normal;
+  }
+
+  private void SaveWorld()
+  {
+    if (_ticker.Player == null) return;
+
+    var data = new WorldSaveData
+    {
+      WorldName = "default", // später aus New World Screen
+      Seed = WorldManager.Seed,
+      PlayerX = _ticker.Player.Position.X,
+      PlayerY = _ticker.Player.Position.Y,
+      PlayerZ = _ticker.Player.Position.Z,
+      CameraYaw = _camera.Yaw,
+      CameraPitch = _camera.Pitch,
+      GameMode = (int)_currentGameMode,
+      TotalTicks = _ticker.Time.TotalTicks,
+    };
+
+    var chunks = _world.ChunkMeshes
+        .Select(c => (c.chunk, c.chunkPos.X, c.chunkPos.Z));
+
+    WorldSaveManager.Save("default", data, chunks);
   }
 
   // ── Init Helpers ──────────────────────────────────────────────────────
@@ -438,7 +465,7 @@ public sealed class KCraftWindow : GameWindow
     _ui.MainMenu.OnSingleplayer += StartGame;
     _ui.MainMenu.OnQuit += Close;
     _ui.PauseMenu.OnResume += ResumeGame;
-    _ui.PauseMenu.OnQuitToTitle += QuitToTitle;
+    _ui.PauseMenu.OnQuitToTitle += SaveAndQuit;
   }
 
   private static int CompileShader(ShaderType type, string source)
@@ -468,6 +495,35 @@ public sealed class KCraftWindow : GameWindow
         _ticker.Player.IsCreative = false;
         _ticker.Player.IsSpectator = true;
         break;
+    }
+  }
+
+  private void LoadWorld()
+  {
+    var (data, chunks) = WorldSaveManager.Load("default");
+    if (data == null) return;
+
+    // Player Position
+    _ticker.Player!.Position = new Vector3(data.PlayerX, data.PlayerY, data.PlayerZ);
+    _camera.SetRotation(data.CameraYaw, data.CameraPitch);
+    _currentGameMode = (GameMode)data.GameMode;
+    ApplyGameMode(_currentGameMode);
+
+    // Chunks laden
+    foreach (var ((cx, cz), rawData) in chunks)
+    {
+      for (int i = 0; i < _world.ChunkMeshes.Count; i++)
+      {
+        var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
+        if (chunkPos.X != cx || chunkPos.Z != cz) continue;
+
+        chunk.LoadRawBlocks(rawData);
+        var newMesh = new ChunkMesh();
+        newMesh.Build(chunk);
+        mesh.Dispose();
+        _world.ChunkMeshes[i] = (newMesh, chunk, chunkPos);
+        break;
+      }
     }
   }
 }

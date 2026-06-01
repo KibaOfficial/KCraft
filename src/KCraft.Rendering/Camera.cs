@@ -60,4 +60,11 @@ public sealed class Camera
     _right = Vector3.Normalize(Vector3.Cross(_front, Vector3.UnitY));
     _up = Vector3.Normalize(Vector3.Cross(_right, _front));
   }
+
+  public void SetRotation(float yaw, float pitch)
+  {
+    Yaw = yaw;
+    Pitch = Math.Clamp(pitch, -89f, 89f);
+    UpdateVectors();
+  }
 }

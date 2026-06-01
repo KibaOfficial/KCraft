@@ -24,8 +24,6 @@ public sealed class Player : Entity
   public const float Drag = 0.6f;
 
   private bool _pendingSneaking;
-  private bool _pendingFlyToggle;
-  private float _flyToggleTimer = 0f;
 
   // ── State ─────────────────────────────────────────────────────────────
   public bool IsSneaking { get; private set; }

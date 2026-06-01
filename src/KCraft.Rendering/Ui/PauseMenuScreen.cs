@@ -19,9 +19,9 @@ public sealed class PauseMenuScreen : Screen
 
   public PauseMenuScreen(TextRenderer text) : base(text)
   {
-    var resume = new Button("Back to Game", 0, 0, 300, 40);
+    var resume = new Button("BReturn", 0, 0, 300, 40);
     var opts = new Button("Options", 0, 0, 300, 40) { Disabled = true };
-    var quit = new Button("Quit to Title", 0, 0, 300, 40);
+    var quit = new Button("Save & Quit", 0, 0, 300, 40);
 
     resume.OnClick += () => OnResume?.Invoke();
     quit.OnClick += () => OnQuitToTitle?.Invoke();

@@ -7,19 +7,20 @@ namespace KCraft.World;
 
 public sealed class Chunk
 {
-  public const int Width  = 16;
+  public const int Width = 16;
   public const int Height = 256;
-  public const int Depth  = 16;
+  public const int Depth = 16;
 
   public const int Volume = Width * Height * Depth;
 
   private readonly byte[] _blocks = new byte[Volume];
+  public ReadOnlySpan<byte> GetRawBlocks() => _blocks;
 
   private static void ValidateCoordinates(int x, int y, int z)
   {
-    if (x < 0 || x >= Width)  throw new ArgumentOutOfRangeException(nameof(x));
+    if (x < 0 || x >= Width) throw new ArgumentOutOfRangeException(nameof(x));
     if (y < 0 || y >= Height) throw new ArgumentOutOfRangeException(nameof(y));
-    if (z < 0 || z >= Depth)  throw new ArgumentOutOfRangeException(nameof(z));
+    if (z < 0 || z >= Depth) throw new ArgumentOutOfRangeException(nameof(z));
   }
 
   private static int GetIndex(int x, int y, int z)
@@ -35,6 +36,13 @@ public sealed class Chunk
   {
     ValidateCoordinates(x, y, z);
     _blocks[GetIndex(x, y, z)] = (byte)block;
+  }
+
+  public void LoadRawBlocks(byte[] data)
+  {
+    if (data.Length != Volume)
+      throw new ArgumentException($"Expected {Volume} bytes, got {data.Length}");
+    Buffer.BlockCopy(data, 0, _blocks, 0, Volume);
   }
 
   public bool IsInside(int x, int y, int z)
