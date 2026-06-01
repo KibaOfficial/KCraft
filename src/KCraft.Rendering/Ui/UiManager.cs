@@ -7,7 +7,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace KCraft.Rendering.Ui;
 
-public enum GameState { MainMenu, Playing, Paused, Options, NewWorld, SelectWorld }
+public enum GameState { MainMenu, Playing, Paused, Options, NewWorld, SelectWorld, Benchmark, BenchmarkResult }
 
 public sealed class UiManager : IDisposable
 {
@@ -17,7 +17,9 @@ public sealed class UiManager : IDisposable
     public readonly OptionsScreen Options;
     public readonly NewWorldScreen NewWorld;
     public readonly SelectWorldScreen SelectWorld;
-
+    public readonly BenchmarkHudScreen BenchmarkHud;
+    public readonly BenchmarkResultScreen BenchmarkResult;
+    public event Action? OnBenchmarkStart;
     public GameState State { get; private set; } = GameState.MainMenu;
     public GameState PreviousState { get; private set; } = GameState.MainMenu;
 
@@ -35,12 +37,15 @@ public sealed class UiManager : IDisposable
         PauseMenu = new PauseMenuScreen(_text);
         Options = new OptionsScreen(_text);
         NewWorld = new NewWorldScreen(_text);
-        SelectWorld = new SelectWorldScreen(_text); // ← ZUERST initialisieren!
+        SelectWorld = new SelectWorldScreen(_text);
+        BenchmarkHud = new BenchmarkHudScreen(_text);
+        BenchmarkResult = new BenchmarkResultScreen(_text);
 
         // MainMenu
         MainMenu.OnSingleplayer += () => { SelectWorld.RefreshWorlds(); SetState(GameState.SelectWorld); };
         MainMenu.OnQuit += () => Environment.Exit(0);
         MainMenu.OnOptions += () => OpenOptions();
+        MainMenu.OnBenchmark += () => OnBenchmarkStart?.Invoke();
 
         // PauseMenu
         PauseMenu.OnResume += () => SetState(GameState.Playing);
@@ -59,6 +64,9 @@ public sealed class UiManager : IDisposable
         SelectWorld.OnCreate += () => SetState(GameState.NewWorld);
         SelectWorld.OnDelete += (name) => { WorldSaveManager.Delete(name); SelectWorld.RefreshWorlds(); };
         SelectWorld.OnBack += () => SetState(GameState.MainMenu);
+
+        // Benchmark
+        BenchmarkResult.OnBack += () => SetState(GameState.MainMenu);
     }
 
     public void SetState(GameState state)
@@ -85,12 +93,13 @@ public sealed class UiManager : IDisposable
     private void Relayout()
     {
         if (!_hasLayout) return;
-
         MainMenu.Layout(_screen);
         PauseMenu.Layout(_screen);
         Options.Layout(_screen);
         NewWorld.Layout(_screen);
         SelectWorld.Layout(_screen);
+        BenchmarkHud.Layout(_screen);
+        BenchmarkResult.Layout(_screen);
     }
 
     public void Draw(Vector2 screen, float mx, float my)
@@ -103,6 +112,7 @@ public sealed class UiManager : IDisposable
         else if (State == GameState.Options) Options.Draw(screen, mx, my);
         else if (State == GameState.NewWorld) NewWorld.Draw(screen, mx, my);
         else if (State == GameState.SelectWorld) SelectWorld.Draw(screen, mx, my);
+        else if (State == GameState.BenchmarkResult) BenchmarkResult.Draw(screen, mx, my);
     }
 
     public void HandleClick(float mx, float my)
@@ -112,6 +122,7 @@ public sealed class UiManager : IDisposable
         else if (State == GameState.Options) Options.HandleClick(mx, my);
         else if (State == GameState.NewWorld) NewWorld.HandleClick(mx, my);
         else if (State == GameState.SelectWorld) SelectWorld.HandleClick(mx, my);
+        else if (State == GameState.BenchmarkResult) BenchmarkResult.HandleClick(mx, my);
     }
 
     public void HandleMouseMove(float mx, float my)

@@ -9,5 +9,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/KCraft.World.Tests/KCraft.World.Tests.csproj" />
+    <Project Path="tests/KCraft.Benchmark/KCraft.Benchmark.csproj" />
   </Folder>
 </Solution>

@@ -21,6 +21,8 @@ public sealed class WorldManager : IDisposable
   public int ChunkCount => ChunkMeshes.Count;
 
   private readonly NoiseWorldGenerator _generator;
+  private readonly HashSet<(int cx, int cz)> _loadedSet = [];
+  private bool IsLoaded(int cx, int cz) => _loadedSet.Contains((cx, cz));
 
   // ── Init ──────────────────────────────────────────────────────────────
   public WorldManager(int seed = 42)
@@ -35,41 +37,32 @@ public sealed class WorldManager : IDisposable
   }
 
   // ── Dynamic Chunk Loading ─────────────────────────────────────────────
-  public void UpdateChunks(Vector3 playerPos)
+  public void UpdateChunks(Vector3 playerPos, int loadRadius = LoadRadius, int unloadRadius = UnloadRadius)
   {
     int pcx = (int)MathF.Floor(playerPos.X / Chunk.Width);
     int pcz = (int)MathF.Floor(playerPos.Z / Chunk.Depth);
 
-    // Unload — Chunks die zu weit weg sind
+    // Unload
     for (int i = ChunkMeshes.Count - 1; i >= 0; i--)
     {
-      var (mesh, chunk, pos) = ChunkMeshes[i];
-      int dx = Math.Abs(pos.X - pcx);
-      int dz = Math.Abs(pos.Z - pcz);
-      if (dx > UnloadRadius || dz > UnloadRadius)
+      var (mesh, _, pos) = ChunkMeshes[i];
+      if (Math.Abs(pos.X - pcx) > unloadRadius || Math.Abs(pos.Z - pcz) > unloadRadius)
       {
         mesh.Dispose();
         ChunkMeshes.RemoveAt(i);
+        _loadedSet.Remove((pos.X, pos.Z));
       }
     }
 
-    // Load — neue Chunks im Load Radius
+    // Load — nur 1 Chunk pro Frame, nächsten finden
     for (int cx = pcx - LoadRadius; cx <= pcx + LoadRadius; cx++)
       for (int cz = pcz - LoadRadius; cz <= pcz + LoadRadius; cz++)
       {
-        int dx = Math.Abs(cx - pcx);
-        int dz = Math.Abs(cz - pcz);
-        if (dx > LoadRadius || dz > LoadRadius) continue;
+        if (Math.Abs(cx - pcx) > LoadRadius || Math.Abs(cz - pcz) > LoadRadius) continue;
         if (IsLoaded(cx, cz)) continue;
         LoadChunk(cx, cz);
+        return; // ← nur einer pro Frame!
       }
-  }
-
-  private bool IsLoaded(int cx, int cz)
-  {
-    foreach (var (_, _, pos) in ChunkMeshes)
-      if (pos.X == cx && pos.Z == cz) return true;
-    return false;
   }
 
   private void LoadChunk(int cx, int cz)
@@ -79,6 +72,7 @@ public sealed class WorldManager : IDisposable
     var mesh = new ChunkMesh();
     mesh.Build(chunk);
     ChunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
+    _loadedSet.Add((cx, cz));
   }
 
   // ── Block Access ──────────────────────────────────────────────────────
@@ -151,6 +145,7 @@ public sealed class WorldManager : IDisposable
   {
     foreach (var (mesh, _, _) in ChunkMeshes)
       mesh.Dispose();
+    _loadedSet.Clear();
     ChunkMeshes.Clear();
   }
 }

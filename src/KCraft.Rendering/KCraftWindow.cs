@@ -9,6 +9,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using KCraft.Assets;
 using KCraft.World;
 using KCraft.Rendering.Ui;
+using KCraft.Rendering.Benchmark;
 
 namespace KCraft.Rendering;
 
@@ -38,6 +39,7 @@ public sealed class KCraftWindow : GameWindow
   private UiManager _ui = null!;
   private HotbarRenderer _hotbar = null!;
   private HitboxRenderer _hitbox = null!;
+  private BenchmarkSession? _benchmark;
 
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
@@ -184,6 +186,21 @@ public sealed class KCraftWindow : GameWindow
         _camera.Position = Vector3.Lerp(prevEye, currEye, alpha);
       }
     }
+    if (_ui.State == GameState.Benchmark && _benchmark != null)
+    {
+      _benchmark.Update((float)args.Time, _world.ChunkCount);
+      _camera.Position = _benchmark.CameraPos;
+      _camera.SetRotation(_benchmark.CameraYaw, _benchmark.CameraPitch);
+      int r = _benchmark.CurrentRenderRadius;
+      _world.UpdateChunks(_benchmark.CameraPos, loadRadius: r, unloadRadius: r + 3);
+
+      if (_benchmark.IsFinished)
+      {
+        _ui.BenchmarkResult.Data = _benchmark.Result;
+        _ui.SetState(GameState.BenchmarkResult);
+        CursorState = CursorState.Normal;
+      }
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -193,12 +210,14 @@ public sealed class KCraftWindow : GameWindow
     base.OnRenderFrame(args);
     GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-    if (_ui.State == GameState.Playing || _ui.State == GameState.Paused)
+    if (_ui.State == GameState.Playing ||
+        _ui.State == GameState.Paused ||
+        _ui.State == GameState.Benchmark)
     {
       float aspect = Size.X / (float)Size.Y;
       var view = _camera.GetViewMatrix();
       var projection = Matrix4.CreatePerspectiveFieldOfView(
-        MathHelper.DegreesToRadians(60f), aspect, 0.1f, 500f);
+          MathHelper.DegreesToRadians(60f), aspect, 0.1f, 500f);
 
       // Sky
       _sky.Draw(_ticker.Time, view, projection, _camera, aspect);
@@ -206,23 +225,35 @@ public sealed class KCraftWindow : GameWindow
       // 3D World
       DrawChunks(view, projection);
 
-      // Ray-Cast + Highlight
-      _lastHit = BlockRaycaster.Cast(_camera.Position, _camera.Front, 8f, _world.GetBlock);
-      if (_lastHit.Hit)
-        _blockHighlight.Draw(_lastHit.BlockPos, view, projection);
+      // Ray-Cast + Highlight — nur im Playing State
+      if (_ui.State == GameState.Playing || _ui.State == GameState.Paused)
+      {
+        _lastHit = BlockRaycaster.Cast(_camera.Position, _camera.Front, 8f, _world.GetBlock);
+        if (_lastHit.Hit)
+          _blockHighlight.Draw(_lastHit.BlockPos, view, projection);
 
-      _chunkBorders.Draw(_camera, view, projection);
+        _chunkBorders.Draw(_camera, view, projection);
 
-      if (_ticker.Player != null && !_freeCam)
-        _hitbox.Draw(_ticker.Player.BoundingBox, view, projection);
+        if (_ticker.Player != null && !_freeCam)
+          _hitbox.Draw(_ticker.Player.BoundingBox, view, projection);
+      }
 
       // 2D Overlays
       GL.Clear(ClearBufferMask.DepthBufferBit);
-      _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
-        _world.ChunkCount, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
-      _gameModeSwitcher.Draw(new Vector2(Size.X, Size.Y));
-      _crosshair.Draw(new Vector2(Size.X, Size.Y));
-      _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
+
+      if (_ui.State == GameState.Playing || _ui.State == GameState.Paused)
+      {
+        _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
+            _world.ChunkCount, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
+        _gameModeSwitcher.Draw(new Vector2(Size.X, Size.Y));
+        _crosshair.Draw(new Vector2(Size.X, Size.Y));
+        _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
+      }
+      else if (_ui.State == GameState.Benchmark)
+      {
+        // Benchmark HUD
+        _ui.BenchmarkHud.Draw(new Vector2(Size.X, Size.Y), 0, 0);
+      }
     }
 
     if (CursorState == CursorState.Normal)
@@ -490,6 +521,7 @@ public sealed class KCraftWindow : GameWindow
     _ui.PauseMenu.OnQuitToTitle += SaveAndQuit;
     _ui.OnWorldSelected += LoadAndStartWorld;
     _ui.OnNewWorldCreate += CreateAndStartWorld;
+    _ui.OnBenchmarkStart += StartBenchmark;
   }
 
   private static Vector2 ToUiMousePosition(Vector2 mouse)
@@ -582,5 +614,23 @@ public sealed class KCraftWindow : GameWindow
     _ui.SetState(GameState.Playing);
     CursorState = CursorState.Grabbed;
     _firstMouse = true;
+  }
+
+  private void StartBenchmark()
+  {
+    _benchmark = new BenchmarkSession(
+        GL.GetString(StringName.Renderer) ?? "Unknown",
+        GL.GetString(StringName.Version) ?? "Unknown");
+    _benchmark.Start();
+    _ui.BenchmarkHud.Session = _benchmark;
+
+    // Welt für Benchmark laden
+    _world.Dispose();
+    _world = new WorldManager(seed: 12345);
+    _ticker.SetGetBlock(_world.GetBlock);
+    _ticker.Player!.Position = new Vector3(0, 90, 0);
+
+    _ui.SetState(GameState.Benchmark);
+    CursorState = CursorState.Grabbed;
   }
 }
