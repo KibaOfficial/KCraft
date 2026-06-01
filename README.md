@@ -15,7 +15,7 @@
 [![OpenGL](https://img.shields.io/badge/OpenGL-4.6-5586A4?style=flat-square&logo=opengl&logoColor=white)](https://www.opengl.org/)
 [![OpenTK](https://img.shields.io/badge/OpenTK-4.9.4-1E88E5?style=flat-square)](https://opentk.net/)
 [![Tests](https://img.shields.io/badge/Tests-50%20passing-brightgreen?style=flat-square)](./tests/)
-[![Version](https://img.shields.io/badge/Version-v0.2.0-orange?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-v0.3.0-orange?style=flat-square)]()
 [![Author](https://img.shields.io/badge/Author-KibaOfficial-blueviolet?style=flat-square&logo=github)](https://github.com/KibaOfficial)
 
 </div>
@@ -30,8 +30,8 @@ KCraft is a Minecraft clone written **completely from scratch** — no Unity, no
 
 ## Screenshots
 
-| Main Menu | In-Game + Debug Overlay |
-|---|---|
+| Main Menu                                                                | In-Game + Debug Overlay                                                           |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | ![KCraft menu](<docs/screenshots/day2/Screenshot 2026-05-31 161338.png>) | ![KCraft debug overlay](<docs/screenshots/day2/Screenshot 2026-05-31 161216.png>) |
 
 More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
@@ -41,26 +41,37 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 ## Features
 
 ### 🌍 World & Generation
+
 - Chunk-based world — **16×256×16** blocks per chunk
-- **289 chunks** rendered simultaneously (render radius 8)
-- `FlatWorldGenerator` — stone → dirt → grass layering
-- `NoiseWorldGenerator` — FastNoiseLite (OpenSimplex2, FBm, 4 octaves) for realistic terrain
+- Dynamic chunk loading / unloading around the player
+- `NoiseWorldGenerator` — FastNoiseLite (OpenSimplex2, FBm, 4 octaves) terrain generation
+- Procedural **oak tree generation**
+- Procedural **house generation**
+- World save / load system (`world.json` + chunk data)
 - `WorldTicker` — fixed **20 TPS** simulation loop (MC-accurate tick order)
 - `WorldTime` — 24,000 ticks/day, SkyLight, TimeString, Day counter
 - Block registry with per-block `BlockDefinition`
 - DDA voxel raycasting (Amanatides & Woo) for targeted block detection
 
 ### 🎮 Gameplay
+
 - **Player Entity** — AABB collision, gravity, jump, sprint, sneak
+- **Gamemodes** — Survival, Creative, Spectator
+- **Fly Mode** — Creative-style free flight
 - **Edge snapping** — can't fall off edges while sneaking
 - **Block Breaking** — left click, instant, chunk mesh rebuild
 - **Block Placing** — right click, player collision check
 - **Block Pick** — middle click copies targeted block to hotbar slot
+- **World Selection** — choose existing saves
+- **World Creation** — custom world names and seeds
 
 ### 🎨 Rendering
+
 - Custom **GLSL shaders** (vertex + fragment)
 - **Face culling** — only visible faces generate mesh geometry
 - **Per-face textures** — grass uses separate top/side/bottom textures
+- Transparent block rendering (Oak Leaves)
+- Faithful 64x development textures
 - **Biome tint** — green tint on grass via shader uniform
 - **Dynamic sky renderer** — day/night gradient, correct sun arc (east→west)
 - **Sunset colours** — orange/pink dusk transition
@@ -72,14 +83,31 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **2D UI renderer** — `DrawRect` + `DrawText` for all overlays and menus
 
 ### 🖥️ UI System
-- **Main Menu** — Singleplayer, Multiplayer *(disabled)*, Options, Quit
+
+- **Main Menu** — Singleplayer, Multiplayer _(disabled)_, Benchmark, Options, Quit
 - **Pause Menu** — Back to Game, Options, Quit to Title
 - **Options Menu** — GUI Scale 1×–4×
-- `GameState` machine — `MainMenu` / `Playing` / `Paused` / `Options`
+- **World Selection Screen**
+- **Create World Screen**
+- **Benchmark Result Screen**
+- **Text Input System** — world names and custom seeds
+- `GameState` machine — MainMenu / Playing / Paused / Options / Benchmark
 - MC-accurate button colours — Normal / Hover (yellow text) / Disabled
 - `Screen` base class with `Layout` / `Draw` / `HandleClick`
 
+### 📊 Benchmark Suite
+
+- Chunk generation benchmarking
+- Parallel chunk generation benchmarking
+- Hardware information collection
+- JSON benchmark export
+- Automatic benchmark IDs
+- In-game benchmark HUD
+- Benchmark result screen
+- Performance comparison across hardware
+
 ### 🔧 Debug Overlay (F3)
+
 - FPS + frame time, world time + day count
 - XYZ, block coords, chunk coords, chunk-relative position
 - Loaded chunks, facing direction (N/S/E/W + yaw/pitch)
@@ -88,24 +116,28 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **F3+G** — chunk border wireframe
 - **F3+N** — toggle free cam / player cam
 - **F3+B** — player AABB hitbox + eye-level line
+- Current gamemode
+- Dynamic chunk statistics
 
 ### 📦 Packaging
-- `build-release.ps1` — one-command Windows + Linux build with fancy output
-- Windows installer via Inno Setup (`KCraft.iss`) with dynamic version injection
+
+- `build.ps1` — one-command Windows + Linux build pipeline
+- Windows installer via Inno Setup (`KCraft.iss`)
 - Linux x64 `.tar.gz` archive
+- Self-contained .NET 10 builds with all dependencies included
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Language | C# 13 / .NET 10 |
-| Windowing | OpenTK 4.9.4 (GLFW) |
-| Graphics | OpenGL 4.6 |
-| Image Loading | StbImageSharp |
-| Noise | FastNoiseLite (MIT, embedded) |
-| Testing | xUnit (50 tests, all passing) |
+| Layer         | Technology                    |
+| ------------- | ----------------------------- |
+| Language      | C# 13 / .NET 10               |
+| Windowing     | OpenTK 4.9.4 (GLFW)           |
+| Graphics      | OpenGL 4.6                    |
+| Image Loading | StbImageSharp                 |
+| Noise         | FastNoiseLite (MIT, embedded) |
+| Testing       | xUnit (50 tests, all passing) |
 
 ---
 
@@ -124,7 +156,22 @@ kcraft/
 │   │   │                        # CrosshairRenderer, BlockHighlightRenderer,
 │   │   │                        # BlockIconRenderer, HotbarRenderer,
 │   │   │                        # HitboxRenderer, WorldManager, UiScale
-│   │   └── Ui/                  # UiManager, Screen, Button,
+│   │   ├── Benchmark/
+│   │   │    ├── BenchmarkData
+│   │   │    ├── FrameSample
+│   │   │    └── PhaseStats
+│   │   └── Ui/
+│   │        ├── UiManager
+│   │        ├── Screen
+│   │        ├── Button
+│   │        ├── TextInput
+│   │        ├── MainMenuScreen
+│   │        ├── PauseMenuScreen
+│   │        ├── OptionsScreen
+│   │        ├── SelectWorldScreen
+│   │        ├── NewWorldScreen
+│   │        ├── BenchmarkHudScreen
+│   │        └── BenchmarkResultScreen
 │   │                            # MainMenuScreen, PauseMenuScreen, OptionsScreen
 │   └── KCraft.World/            # Chunk, ChunkMath, ChunkPosition,
 │       │                        # AABB, Entity, Player,
@@ -152,7 +199,7 @@ kcraft/
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - GPU with **OpenGL 4.1+** support
-- *(Optional)* Minecraft Java Edition JAR for full block texture set
+- _(Optional)_ Minecraft Java Edition JAR for full block texture set
 
 ### Run
 
@@ -188,40 +235,55 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 
 ## Controls
 
-| Input | Action |
-|---|---|
-| `W A S D` | Move |
-| `Space` | Jump |
-| `Left Shift` | Sneak |
-| `Left Ctrl` | Sprint |
-| `Left Click` | Break block |
-| `Right Click` | Place block |
-| `Middle Click` | Pick block |
-| `Scroll / 1–9` | Select hotbar slot |
-| `Mouse` | Look around |
-| `Escape` | Pause / release cursor |
-| `F3` | Toggle debug overlay |
-| `F3 + G` | Toggle chunk borders |
-| `F3 + N` | Toggle free cam |
-| `F3 + B` | Toggle hitboxes |
+| Input          | Action                 |
+| -------------- | ---------------------- |
+| `W A S D`      | Move                   |
+| `Space`        | Jump                   |
+| `Left Shift`   | Sneak                  |
+| `Left Ctrl`    | Sprint                 |
+| `Left Click`   | Break block            |
+| `Right Click`  | Place block            |
+| `Middle Click` | Pick block             |
+| `Scroll / 1–9` | Select hotbar slot     |
+| `Mouse`        | Look around            |
+| `Escape`       | Pause / release cursor |
+| `F3`           | Toggle debug overlay   |
+| `F3 + G`       | Toggle chunk borders   |
+| `F3 + N`       | Toggle free cam        |
+| `F3 + B`       | Toggle hitboxes        |
 
 ---
 
 ## Roadmap
 
-- [ ] Threaded chunk loading / unloading
-- [ ] Frustum culling
+### 🌍 World
+- [ ] Water generation
+- [ ] Beaches
+- [ ] Better structure generation
+- [ ] More tree variants
+- [ ] Biomes
+
+### 🎮 Gameplay
 - [ ] Inventory system
-- [ ] Stars and richer celestial rendering
+- [ ] Item system
+- [ ] Crafting system
+- [ ] Survival progression
+
+### 🎨 Rendering
+- [ ] Frustum culling
 - [ ] Ambient occlusion
-- [ ] Save / load world
-- [ ] Multiplayer *(someday 👀)*
-- [x] Sky rendering — sun arc, day/night, sunset colours
-- [x] Ambient light — night darkness
-- [x] Player entity — physics, gravity, jump, sprint, sneak
-- [x] Block breaking + placing + pick
-- [x] Hotbar with isometric block icons
-- [x] Options menu — GUI Scale
+- [ ] Clouds
+- [ ] Stars and moon
+
+### 🌐 Multiplayer
+- [ ] Networking layer
+- [ ] P2P multiplayer
+- [ ] Dedicated server support
+
+### ⚡ Performance
+- [x] Dynamic chunk loading
+- [x] Benchmark suite
+- [ ] Threaded mesh generation
 
 ---
 
