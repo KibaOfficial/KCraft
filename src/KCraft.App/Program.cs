@@ -1,15 +1,14 @@
 ﻿// Copyright (c) 2026 KibaOfficial
 // All rights reserved.
-// using KCraft.World;
 
-// Console.WriteLine("KCraft");
-
-// var chunk = new Chunk();
-
-// Console.WriteLine($"Chunk: {Chunk.Width}x{Chunk.Height}x{Chunk.Depth}");
-// Console.WriteLine($"Block Count: {Chunk.Volume}");
-
+using KCraft.App;
 using KCraft.Rendering;
+
+// GPU Preference setzen BEVOR OpenGL/OpenTK initialisiert wird
+GpuSelector.PreferHighPerformanceGpu();
 
 using var window = new KCraftWindow();
 window.Run();
+
+// Registry aufräumen
+GpuSelector.Cleanup();

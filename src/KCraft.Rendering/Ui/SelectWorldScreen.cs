@@ -241,7 +241,7 @@ public sealed class SelectWorldScreen : Screen
         2 => "Spectator Mode",
         _ => "Survival Mode"
       };
-      string line2 = $"{gameMode}  -  KCraft v0.3.0";
+      string line2 = $"{gameMode}  -  KCraft v0.4.0";
       Text.DrawText(line2, textX, nameY + 20f * scale,
           screen, scale: scale * 0.85f, color: SubDim);
 
