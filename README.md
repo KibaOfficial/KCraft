@@ -15,7 +15,7 @@
 [![OpenGL](https://img.shields.io/badge/OpenGL-4.6-5586A4?style=flat-square&logo=opengl&logoColor=white)](https://www.opengl.org/)
 [![OpenTK](https://img.shields.io/badge/OpenTK-4.9.4-1E88E5?style=flat-square)](https://opentk.net/)
 [![Tests](https://img.shields.io/badge/Tests-50%20passing-brightgreen?style=flat-square)](./tests/)
-[![Version](https://img.shields.io/badge/Version-v0.3.0-orange?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-v0.4.0-orange?style=flat-square)]()
 [![Author](https://img.shields.io/badge/Author-KibaOfficial-blueviolet?style=flat-square&logo=github)](https://github.com/KibaOfficial)
 
 </div>
@@ -52,6 +52,9 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - `WorldTime` — 24,000 ticks/day, SkyLight, TimeString, Day counter
 - Block registry with per-block `BlockDefinition`
 - DDA voxel raycasting (Amanatides & Woo) for targeted block detection
+- Biome system — **Plains**, **Beach**, **Ocean**
+- Water block with fluid physics simulation
+- Fluid level system (source + 7 flowing levels)
 
 ### 🎮 Gameplay
 
@@ -81,6 +84,8 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **Block icon renderer** — isometric 2D block icons in hotbar (MC face brightness)
 - **Bitmap font renderer** — Minecraft-style `ascii.png` atlas with proportional metrics
 - **2D UI renderer** — `DrawRect` + `DrawText` for all overlays and menus
+- Water rendering — translucent two-pass with alpha blending
+- Animated texture support (spritesheet frame extraction)
 
 ### 🖥️ UI System
 
@@ -257,11 +262,11 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 ## Roadmap
 
 ### 🌍 World
-- [ ] Water generation
-- [ ] Beaches
+- [x] Water generation
+- [x] Beaches
+- [x] Biomes (Plains, Beach, Ocean)
 - [ ] Better structure generation
 - [ ] More tree variants
-- [ ] Biomes
 
 ### 🎮 Gameplay
 - [ ] Inventory system
@@ -283,6 +288,7 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 ### ⚡ Performance
 - [x] Dynamic chunk loading
 - [x] Benchmark suite
+- [x] GPU preference selector
 - [ ] Threaded mesh generation
 
 ---
