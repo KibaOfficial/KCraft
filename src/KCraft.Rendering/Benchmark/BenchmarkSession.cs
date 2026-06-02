@@ -126,7 +126,17 @@ public sealed class BenchmarkSession
     for (int i = 0; i < Phases.Length; i++)
     {
       var times = _phaseFrameTimes[i].OrderBy(x => x).ToList();
-      if (times.Count == 0) continue;
+      if (times.Count == 0)
+      {
+        // Fallback damit kein null in phaseStats landet
+        phaseStats[i] = new PhaseStats
+        {
+          RenderRadius = Phases[i].renderRadius,
+          AvgFps = 0,
+          P1LowFps = 0,
+        };
+        continue;
+      }
       double avg = times.Average();
       phaseStats[i] = new PhaseStats
       {

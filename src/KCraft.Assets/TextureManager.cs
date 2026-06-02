@@ -13,14 +13,15 @@ public sealed class TextureManager : IDisposable
     _basePath = basePath;
   }
 
-  public Texture2D Get(string name)
+  public Texture2D Get(string name, int frameIndex = 0)
   {
-    if (_cache.TryGetValue(name, out var tex))
+    string key = $"{name}#{frameIndex}";
+    if (_cache.TryGetValue(key, out var tex))
       return tex;
 
     var path = Path.Combine(_basePath, $"{name}.png");
-    var loaded = new Texture2D(path);
-    _cache[name] = loaded;
+    var loaded = new Texture2D(path, frameIndex: frameIndex);
+    _cache[key] = loaded;
     return loaded;
   }
 

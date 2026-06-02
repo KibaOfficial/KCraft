@@ -40,8 +40,13 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
         for (int y = 0; y < Chunk.Height; y++)
         {
           Block block;
-          if (y > surface) block = Block.Air;
-          else if (y == surface) block = Block.Grass;
+          if (y > surface && y <= SeaLevel) block = Block.Water; // ← Wasser
+          else if (y > surface) block = Block.Air;
+          else if (y == surface)
+          {
+            // Unter SeaLevel kein Gras — Sand stattdessen
+            block = surface <= SeaLevel ? Block.Sand : Block.Grass;
+          }
           else if (y >= surface - 3) block = Block.Dirt;
           else block = Block.Stone;
 
@@ -49,7 +54,7 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
         }
       }
 
-    // ── Bäume ─────────────────────────────────────────────────────
+    // ── Bäume — nur auf Gras, nicht unter Wasser ──────────────────
     var rng = new Random(_seed ^ (chunkX * 1234567) ^ (chunkZ * 7654321));
 
     for (int x = 2; x < Chunk.Width - 2; x++)
@@ -57,7 +62,6 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
       {
         if (rng.NextSingle() > 0.015f) continue;
 
-        // Surface finden
         int surfaceY = 0;
         for (int y = Chunk.Height - 1; y >= 0; y--)
         {
@@ -68,6 +72,7 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
           }
         }
         if (surfaceY == 0) continue;
+        if (surfaceY <= SeaLevel) continue; // ← kein Baum unter Wasser
 
         PlaceTree(chunk, x, surfaceY, z, rng);
       }

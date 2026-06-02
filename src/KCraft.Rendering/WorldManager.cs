@@ -23,6 +23,7 @@ public sealed class WorldManager : IDisposable
   private readonly NoiseWorldGenerator _generator;
   private readonly HashSet<(int cx, int cz)> _loadedSet = [];
   private bool IsLoaded(int cx, int cz) => _loadedSet.Contains((cx, cz));
+  private readonly Dictionary<(int cx, int cz), Chunk> _chunkLookup = new();
 
   // ── Init ──────────────────────────────────────────────────────────────
   public WorldManager(int seed = 42)
@@ -50,6 +51,7 @@ public sealed class WorldManager : IDisposable
       {
         mesh.Dispose();
         ChunkMeshes.RemoveAt(i);
+        _chunkLookup.Remove((pos.X, pos.Z));
         _loadedSet.Remove((pos.X, pos.Z));
       }
     }
@@ -69,10 +71,42 @@ public sealed class WorldManager : IDisposable
   {
     var chunk = new Chunk();
     _generator.Generate(chunk, cx, cz);
-    var mesh = new ChunkMesh();
-    mesh.Build(chunk);
-    ChunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
+    _chunkLookup[(cx, cz)] = chunk;
     _loadedSet.Add((cx, cz));
+
+    var mesh = new ChunkMesh();
+    mesh.Build(chunk, GetBlock, cx, cz);
+    ChunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
+
+    // Nachbar-Chunks neu bauen — die hatten vorher keine Info über diesen Chunk
+    RebuildNeighbors(cx, cz);
+  }
+
+  public void RebuildNeighbors(int cx, int cz)
+  {
+    int[] dx = [-1, 1, 0, 0];
+    int[] dz = [0, 0, -1, 1];
+
+    for (int i = 0; i < 4; i++)
+    {
+      int nx = cx + dx[i];
+      int nz = cz + dz[i];
+
+      if (!_chunkLookup.TryGetValue((nx, nz), out var neighborChunk)) continue;
+
+      // Nachbar-Mesh neu bauen
+      for (int j = 0; j < ChunkMeshes.Count; j++)
+      {
+        var (mesh, _, pos) = ChunkMeshes[j];
+        if (pos.X != nx || pos.Z != nz) continue;
+
+        var newMesh = new ChunkMesh();
+        newMesh.Build(neighborChunk, GetBlock, nx, nz);
+        mesh.Dispose();
+        ChunkMeshes[j] = (newMesh, neighborChunk, pos);
+        break;
+      }
+    }
   }
 
   // ── Block Access ──────────────────────────────────────────────────────
@@ -81,18 +115,17 @@ public sealed class WorldManager : IDisposable
     int cx = (int)MathF.Floor(wx / (float)Chunk.Width);
     int cz = (int)MathF.Floor(wz / (float)Chunk.Depth);
 
-    foreach (var (_, chunk, chunkPos) in ChunkMeshes)
-    {
-      if (chunkPos.X != cx || chunkPos.Z != cz) continue;
-      int lx = wx - cx * Chunk.Width;
-      int ly = wy;
-      int lz = wz - cz * Chunk.Depth;
-      if (!chunk.IsInside(lx, ly, lz)) return null;
-      var block = chunk.GetBlock(lx, ly, lz);
-      return block == Block.Air ? null : block;
-    }
-    return null;
+    if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) return null;
+
+    int lx = wx - cx * Chunk.Width;
+    int ly = wy;
+    int lz = wz - cz * Chunk.Depth;
+
+    if (!chunk.IsInside(lx, ly, lz)) return null;
+    var block = chunk.GetBlock(lx, ly, lz);
+    return block == Block.Air ? null : block;
   }
+
 
   public bool BreakBlock(Vector3i worldPos)
   {
@@ -109,7 +142,7 @@ public sealed class WorldManager : IDisposable
       if (!chunk.IsInside(lx, ly, lz)) return false;
       chunk.SetBlock(lx, ly, lz, Block.Air);
       var newMesh = new ChunkMesh();
-      newMesh.Build(chunk);
+      newMesh.Build(chunk, GetBlock, cx, cz);
       mesh.Dispose();
       ChunkMeshes[i] = (newMesh, chunk, chunkPos);
       return true;
@@ -133,7 +166,7 @@ public sealed class WorldManager : IDisposable
       if (chunk.GetBlock(lx, ly, lz) != Block.Air) return false;
       chunk.SetBlock(lx, ly, lz, block);
       var newMesh = new ChunkMesh();
-      newMesh.Build(chunk);
+      newMesh.Build(chunk, GetBlock, cx, cz);
       mesh.Dispose();
       ChunkMeshes[i] = (newMesh, chunk, chunkPos);
       return true;
@@ -146,6 +179,7 @@ public sealed class WorldManager : IDisposable
     foreach (var (mesh, _, _) in ChunkMeshes)
       mesh.Dispose();
     _loadedSet.Clear();
+    _chunkLookup.Clear();
     ChunkMeshes.Clear();
   }
 }

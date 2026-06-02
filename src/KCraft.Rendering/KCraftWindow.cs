@@ -17,7 +17,7 @@ public sealed class KCraftWindow : GameWindow
 {
   // ── Shader ────────────────────────────────────────────────────────────
   private int _shader;
-  private int _uModel, _uView, _uProjection, _uAmbient;
+  private int _uModel, _uView, _uProjection, _uAmbient, _uAlpha;
 
   // ── World ─────────────────────────────────────────────────────────────
   private WorldManager _world = null!;
@@ -73,11 +73,12 @@ public sealed class KCraftWindow : GameWindow
     uniform sampler2D uTexture;
     uniform vec3 uTint;
     uniform float uAmbient;
+    uniform float uAlpha;
     void main()
     {
       vec4 color = texture(uTexture, vTexCoord);
       if (color.a < 0.1) discard;
-      FragColor = vec4(color.rgb * uTint * uAmbient, color.a);
+      FragColor = vec4(color.rgb * uTint * uAmbient, color.a * uAlpha);
     }
     """;
 
@@ -273,15 +274,36 @@ public sealed class KCraftWindow : GameWindow
     float ambient = Math.Clamp(skyLight * (1.0f - 0.267f) + 0.267f, 0.267f, 1.0f);
     GL.Uniform1(_uAmbient, ambient);
 
+    int uTex = GL.GetUniformLocation(_shader, "uTexture");
+    int uTint = GL.GetUniformLocation(_shader, "uTint");
+
+    // ── Pass 1: Solide Blöcke ─────────────────────────────────────────
+    GL.Uniform1(_uAlpha, 1.0f);
     foreach (var (mesh, _, chunkPos) in _world.ChunkMeshes)
     {
       var model = Matrix4.CreateTranslation(
-        new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
+          new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
       GL.UniformMatrix4(_uModel, false, ref model);
-      mesh.Draw(_textureManager,
-        GL.GetUniformLocation(_shader, "uTexture"),
-        GL.GetUniformLocation(_shader, "uTint"));
+      mesh.Draw(_textureManager, uTex, uTint);
     }
+
+    // ── Pass 2: Wasser ────────────────────────────────────────────────
+    GL.Enable(EnableCap.Blend);
+    GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+    GL.DepthMask(false);
+    GL.Uniform1(_uAlpha, 0.8f);
+
+    foreach (var (mesh, _, chunkPos) in _world.ChunkMeshes)
+    {
+      var model = Matrix4.CreateTranslation(
+          new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
+      GL.UniformMatrix4(_uModel, false, ref model);
+      mesh.DrawWater(_textureManager, uTex, uTint);
+    }
+
+    GL.DepthMask(true);
+    GL.Disable(EnableCap.Blend);
+    GL.Uniform1(_uAlpha, 1.0f);
   }
 
   // ── Input ─────────────────────────────────────────────────────────────
@@ -489,6 +511,7 @@ public sealed class KCraftWindow : GameWindow
     _uView = GL.GetUniformLocation(_shader, "uView");
     _uProjection = GL.GetUniformLocation(_shader, "uProjection");
     _uAmbient = GL.GetUniformLocation(_shader, "uAmbient");
+    _uAlpha = GL.GetUniformLocation(_shader, "uAlpha");
   }
 
   private static void InitGL()
@@ -566,20 +589,20 @@ public sealed class KCraftWindow : GameWindow
   private void LoadWorld(string name = "default")
   {
     _currentWorldName = name;
-    var (data, chunks) = WorldSaveManager.Load(name); // ← name statt "default"
+    var (data, chunks) = WorldSaveManager.Load(name);
     if (data == null) return;
 
     _ticker.Player!.Position = new Vector3(data.PlayerX, data.PlayerY, data.PlayerZ);
     _camera.Position = _ticker.Player.EyePosition;
     _camera.SetRotation(data.CameraYaw, data.CameraPitch);
 
-    // Chunks um gespeicherte Player-Position vorladen.
-    // Sonst stehst du weit weg, aber WorldManager hat nur Spawn-Chunks geladen.
     for (int i = 0; i < 300; i++)
       _world.UpdateChunks(_ticker.Player.Position, loadRadius: 10, unloadRadius: 13);
+
     _currentGameMode = (GameMode)data.GameMode;
     ApplyGameMode(_currentGameMode);
 
+    // 1. Erst gespeicherte Chunk-Daten laden
     foreach (var ((cx, cz), rawData) in chunks)
     {
       for (int i = 0; i < _world.ChunkMeshes.Count; i++)
@@ -587,12 +610,18 @@ public sealed class KCraftWindow : GameWindow
         var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
         if (chunkPos.X != cx || chunkPos.Z != cz) continue;
         chunk.LoadRawBlocks(rawData);
-        var newMesh = new ChunkMesh();
-        newMesh.Build(chunk);
-        mesh.Dispose();
-        _world.ChunkMeshes[i] = (newMesh, chunk, chunkPos);
         break;
       }
+    }
+
+    // 2. Dann alle Meshes neu bauen mit GetBlock
+    for (int i = 0; i < _world.ChunkMeshes.Count; i++)
+    {
+      var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
+      var newMesh = new ChunkMesh();
+      newMesh.Build(chunk, _world.GetBlock, chunkPos.X, chunkPos.Z);
+      mesh.Dispose();
+      _world.ChunkMeshes[i] = (newMesh, chunk, chunkPos);
     }
   }
 

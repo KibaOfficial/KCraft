@@ -25,6 +25,7 @@ public static class BlockRegistry
       TextureTop = "oak_leaves",
       TextureSide = "oak_leaves",
       TextureBottom = "oak_leaves",
+      IsTransparent = true,
     },
     [Block.OakPlanks] = new()
     {
@@ -40,6 +41,14 @@ public static class BlockRegistry
     },
     [Block.Dirt] = new() { TextureTop = "dirt", TextureSide = "dirt", TextureBottom = "dirt" },
     [Block.Stone] = new() { TextureTop = "stone", TextureSide = "stone", TextureBottom = "stone" },
+    [Block.Water] = new()
+    {
+      TextureTop = "water_still",
+      TextureSide = "water_still",
+      TextureBottom = "water_still",
+      IsTransparent = true,
+      IsFluid = true,
+    },  
   };
   public static BlockDefinition Get(Block block) => Definitions[block];
 }

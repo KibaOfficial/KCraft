@@ -7,15 +7,16 @@ namespace KCraft.World;
 
 public static class FaceVisibility
 {
-  // Blöcke die transparent sind — Faces dahinter werden gerendert
   private static bool IsTransparent(Block block) => block switch
   {
     Block.Air => true,
     Block.OakLeaves => true,
+    Block.Water => true,
     _ => false,
   };
 
-  public static bool IsVisible(Chunk chunk, int x, int y, int z, FaceDirection face)
+  public static bool IsVisible(Chunk chunk, int x, int y, int z, FaceDirection face,
+      Func<int, int, int, Block?>? getWorldBlock = null, int chunkX = 0, int chunkZ = 0)
   {
     var (nx, ny, nz) = face switch
     {
@@ -25,10 +26,32 @@ public static class FaceVisibility
       FaceDirection.West => (x - 1, y, z),
       FaceDirection.Up => (x, y + 1, z),
       FaceDirection.Down => (x, y - 1, z),
-      _ => throw new ArgumentOutOfRangeException(nameof(face), face, null)
+      _ => throw new ArgumentOutOfRangeException(nameof(face))
     };
 
-    if (!chunk.IsInside(nx, ny, nz)) return true;
-    return IsTransparent(chunk.GetBlock(nx, ny, nz));
+    var current = chunk.GetBlock(x, y, z);
+
+    // Innerhalb des Chunks
+    if (chunk.IsInside(nx, ny, nz))
+    {
+      var neighbor = chunk.GetBlock(nx, ny, nz);
+      if (current == Block.Water && neighbor == Block.Water) return false;
+      return IsTransparent(neighbor);
+    }
+
+    // Chunk-Grenze — getWorldBlock nutzen
+    if (getWorldBlock != null)
+    {
+      int wx = chunkX * Chunk.Width + nx;
+      int wy = ny;
+      int wz = chunkZ * Chunk.Depth + nz;
+      var worldNeighbor = getWorldBlock(wx, wy, wz);
+
+      if (worldNeighbor == null) return true; // Chunk nicht geladen
+      if (current == Block.Water && worldNeighbor == Block.Water) return false;
+      return IsTransparent(worldNeighbor.Value);
+    }
+
+    return true;
   }
 }

@@ -12,5 +12,6 @@ public enum Block : byte
     OakLog = 4,
     OakPlanks = 5,
     OakLeaves = 6,
-    Sand = 7
+    Sand = 7,
+    Water = 8,
 }
