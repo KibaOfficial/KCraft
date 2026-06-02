@@ -58,7 +58,9 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
 
           if (y > surface && y <= SeaLevel)
           {
-            block = Block.Water; // Wasser füllt Lücken bis SeaLevel
+            chunk.SetBlock(x, y, z, Block.Water);
+            chunk.SetFluidLevel(x, y, z, 0);
+            continue;
           }
           else if (y > surface)
           {

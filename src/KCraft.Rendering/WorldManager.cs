@@ -22,16 +22,21 @@ public sealed class WorldManager : IDisposable
 
   private readonly NoiseWorldGenerator _generator;
   private readonly HashSet<(int cx, int cz)> _loadedSet = [];
-  private bool IsLoaded(int cx, int cz) => _loadedSet.Contains((cx, cz));
   private readonly Dictionary<(int cx, int cz), Chunk> _chunkLookup = new();
+  private readonly HashSet<(int cx, int cz)> _dirtyChunks = [];
+  private readonly HashSet<(int wx, int wy, int wz)> _activeWater = [];
+  private readonly WaterSimulator _waterSim;
+  private int _waterTickCounter = 0;
+
+  private bool IsLoaded(int cx, int cz) => _loadedSet.Contains((cx, cz));
 
   // ── Init ──────────────────────────────────────────────────────────────
   public WorldManager(int seed = 42)
   {
     Seed = seed;
     _generator = new NoiseWorldGenerator(seed: seed);
+    _waterSim = new WaterSimulator(GetWorldFluid, SetWorldFluid, MarkDirty);
 
-    // Initial load um Spawn (0,0)
     for (int cx = -RenderRadius; cx <= RenderRadius; cx++)
       for (int cz = -RenderRadius; cz <= RenderRadius; cz++)
         LoadChunk(cx, cz);
@@ -49,6 +54,18 @@ public sealed class WorldManager : IDisposable
       var (mesh, _, pos) = ChunkMeshes[i];
       if (Math.Abs(pos.X - pcx) > unloadRadius || Math.Abs(pos.Z - pcz) > unloadRadius)
       {
+        // Water-Blöcke aus aktiver Liste entfernen
+        if (_chunkLookup.TryGetValue((pos.X, pos.Z), out var unloadChunk))
+        {
+          for (int x = 0; x < Chunk.Width; x++)
+            for (int y = 0; y < Chunk.Height; y++)
+              for (int z = 0; z < Chunk.Depth; z++)
+              {
+                if (unloadChunk.GetBlock(x, y, z) == Block.Water)
+                  _activeWater.Remove((pos.X * Chunk.Width + x, y, pos.Z * Chunk.Depth + z));
+              }
+        }
+
         mesh.Dispose();
         ChunkMeshes.RemoveAt(i);
         _chunkLookup.Remove((pos.X, pos.Z));
@@ -56,14 +73,14 @@ public sealed class WorldManager : IDisposable
       }
     }
 
-    // Load — nur 1 Chunk pro Frame, nächsten finden
-    for (int cx = pcx - LoadRadius; cx <= pcx + LoadRadius; cx++)
-      for (int cz = pcz - LoadRadius; cz <= pcz + LoadRadius; cz++)
+    // Load — nur 1 Chunk pro Frame
+    for (int cx = pcx - loadRadius; cx <= pcx + loadRadius; cx++)
+      for (int cz = pcz - loadRadius; cz <= pcz + loadRadius; cz++)
       {
-        if (Math.Abs(cx - pcx) > LoadRadius || Math.Abs(cz - pcz) > LoadRadius) continue;
+        if (Math.Abs(cx - pcx) > loadRadius || Math.Abs(cz - pcz) > loadRadius) continue;
         if (IsLoaded(cx, cz)) continue;
         LoadChunk(cx, cz);
-        return; // ← nur einer pro Frame!
+        return;
       }
   }
 
@@ -71,6 +88,15 @@ public sealed class WorldManager : IDisposable
   {
     var chunk = new Chunk();
     _generator.Generate(chunk, cx, cz);
+
+    for (int x = 0; x < Chunk.Width; x++)
+      for (int y = 0; y < Chunk.Height; y++)
+        for (int z = 0; z < Chunk.Depth; z++)
+        {
+          if (chunk.GetBlock(x, y, z) == Block.Water)
+            _activeWater.Add((cx * Chunk.Width + x, y, cz * Chunk.Depth + z));
+        }
+
     _chunkLookup[(cx, cz)] = chunk;
     _loadedSet.Add((cx, cz));
 
@@ -78,8 +104,53 @@ public sealed class WorldManager : IDisposable
     mesh.Build(chunk, GetBlock, cx, cz);
     ChunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
 
-    // Nachbar-Chunks neu bauen — die hatten vorher keine Info über diesen Chunk
-    RebuildNeighbors(cx, cz);
+    // Nur Nachbarn neu bauen die Wasser an der Grenze haben
+    RebuildNeighborsIfNeeded(cx, cz, chunk);
+  }
+
+  private void RebuildNeighborsIfNeeded(int cx, int cz, Chunk newChunk)
+  {
+    // Prüfe ob neue Chunk Wasser an den Grenzen hat
+    bool hasWaterNorth = false, hasWaterSouth = false,
+         hasWaterEast = false, hasWaterWest = false;
+
+    for (int y = 0; y < Chunk.Height; y++)
+    {
+      for (int x = 0; x < Chunk.Width; x++)
+      {
+        if (newChunk.GetBlock(x, y, 0) == Block.Water) hasWaterNorth = true;
+        if (newChunk.GetBlock(x, y, Chunk.Depth - 1) == Block.Water) hasWaterSouth = true;
+      }
+      for (int z = 0; z < Chunk.Depth; z++)
+      {
+        if (newChunk.GetBlock(0, y, z) == Block.Water) hasWaterWest = true;
+        if (newChunk.GetBlock(Chunk.Width - 1, y, z) == Block.Water) hasWaterEast = true;
+      }
+      if (hasWaterNorth && hasWaterSouth && hasWaterEast && hasWaterWest) break;
+    }
+
+    int[] dx = [-1, 1, 0, 0];
+    int[] dz = [0, 0, -1, 1];
+    bool[] needed = [hasWaterWest, hasWaterEast, hasWaterNorth, hasWaterSouth];
+
+    for (int i = 0; i < 4; i++)
+    {
+      if (!needed[i]) continue;
+      int nx = cx + dx[i];
+      int nz = cz + dz[i];
+      if (!_chunkLookup.TryGetValue((nx, nz), out var neighborChunk)) continue;
+
+      for (int j = 0; j < ChunkMeshes.Count; j++)
+      {
+        var (mesh, _, pos) = ChunkMeshes[j];
+        if (pos.X != nx || pos.Z != nz) continue;
+        var newMesh = new ChunkMesh();
+        newMesh.Build(neighborChunk, GetBlock, nx, nz);
+        mesh.Dispose();
+        ChunkMeshes[j] = (newMesh, neighborChunk, pos);
+        break;
+      }
+    }
   }
 
   public void RebuildNeighbors(int cx, int cz)
@@ -91,15 +162,12 @@ public sealed class WorldManager : IDisposable
     {
       int nx = cx + dx[i];
       int nz = cz + dz[i];
-
       if (!_chunkLookup.TryGetValue((nx, nz), out var neighborChunk)) continue;
 
-      // Nachbar-Mesh neu bauen
       for (int j = 0; j < ChunkMeshes.Count; j++)
       {
         var (mesh, _, pos) = ChunkMeshes[j];
         if (pos.X != nx || pos.Z != nz) continue;
-
         var newMesh = new ChunkMesh();
         newMesh.Build(neighborChunk, GetBlock, nx, nz);
         mesh.Dispose();
@@ -114,18 +182,13 @@ public sealed class WorldManager : IDisposable
   {
     int cx = (int)MathF.Floor(wx / (float)Chunk.Width);
     int cz = (int)MathF.Floor(wz / (float)Chunk.Depth);
-
     if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) return null;
-
     int lx = wx - cx * Chunk.Width;
-    int ly = wy;
     int lz = wz - cz * Chunk.Depth;
-
-    if (!chunk.IsInside(lx, ly, lz)) return null;
-    var block = chunk.GetBlock(lx, ly, lz);
+    if (!chunk.IsInside(lx, wy, lz)) return null;
+    var block = chunk.GetBlock(lx, wy, lz);
     return block == Block.Air ? null : block;
   }
-
 
   public bool BreakBlock(Vector3i worldPos)
   {
@@ -137,10 +200,10 @@ public sealed class WorldManager : IDisposable
       var (mesh, chunk, chunkPos) = ChunkMeshes[i];
       if (chunkPos.X != cx || chunkPos.Z != cz) continue;
       int lx = worldPos.X - cx * Chunk.Width;
-      int ly = worldPos.Y;
       int lz = worldPos.Z - cz * Chunk.Depth;
-      if (!chunk.IsInside(lx, ly, lz)) return false;
-      chunk.SetBlock(lx, ly, lz, Block.Air);
+      if (!chunk.IsInside(lx, worldPos.Y, lz)) return false;
+      chunk.SetBlock(lx, worldPos.Y, lz, Block.Air);
+      _activeWater.Remove((worldPos.X, worldPos.Y, worldPos.Z));
       var newMesh = new ChunkMesh();
       newMesh.Build(chunk, GetBlock, cx, cz);
       mesh.Dispose();
@@ -160,11 +223,16 @@ public sealed class WorldManager : IDisposable
       var (mesh, chunk, chunkPos) = ChunkMeshes[i];
       if (chunkPos.X != cx || chunkPos.Z != cz) continue;
       int lx = worldPos.X - cx * Chunk.Width;
-      int ly = worldPos.Y;
       int lz = worldPos.Z - cz * Chunk.Depth;
-      if (!chunk.IsInside(lx, ly, lz)) return false;
-      if (chunk.GetBlock(lx, ly, lz) != Block.Air) return false;
-      chunk.SetBlock(lx, ly, lz, block);
+      if (!chunk.IsInside(lx, worldPos.Y, lz)) return false;
+      if (chunk.GetBlock(lx, worldPos.Y, lz) != Block.Air) return false;
+      chunk.SetBlock(lx, worldPos.Y, lz, block);
+      if (block == Block.Water)
+      {
+        chunk.SetFluidLevel(lx, worldPos.Y, lz, 0);
+        _activeWater.Add((worldPos.X, worldPos.Y, worldPos.Z));
+        _waterSim.ScheduleUpdate(worldPos.X, worldPos.Y, worldPos.Z);
+      }
       var newMesh = new ChunkMesh();
       newMesh.Build(chunk, GetBlock, cx, cz);
       mesh.Dispose();
@@ -174,12 +242,79 @@ public sealed class WorldManager : IDisposable
     return false;
   }
 
+  // ── Fluid Access ──────────────────────────────────────────────────────
+  public (Block block, byte level)? GetWorldFluid(int wx, int wy, int wz)
+  {
+    int cx = (int)MathF.Floor(wx / (float)Chunk.Width);
+    int cz = (int)MathF.Floor(wz / (float)Chunk.Depth);
+    if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) return null;
+    int lx = wx - cx * Chunk.Width;
+    int lz = wz - cz * Chunk.Depth;
+    if (!chunk.IsInside(lx, wy, lz)) return null;
+    return (chunk.GetBlock(lx, wy, lz), chunk.GetFluidLevel(lx, wy, lz));
+  }
+
+  public void SetWorldFluid(int wx, int wy, int wz, Block block, byte level)
+  {
+    int cx = (int)MathF.Floor(wx / (float)Chunk.Width);
+    int cz = (int)MathF.Floor(wz / (float)Chunk.Depth);
+    if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) return;
+    int lx = wx - cx * Chunk.Width;
+    int lz = wz - cz * Chunk.Depth;
+    if (!chunk.IsInside(lx, wy, lz)) return;
+    chunk.SetBlock(lx, wy, lz, block);
+    chunk.SetFluidLevel(lx, wy, lz, level);
+    _dirtyChunks.Add((cx, cz));
+    if (block == Block.Water)
+      _activeWater.Add((wx, wy, wz));
+    else
+      _activeWater.Remove((wx, wy, wz));
+  }
+
+  public void MarkDirty(int wx, int wy, int wz)
+  {
+    int cx = (int)MathF.Floor(wx / (float)Chunk.Width);
+    int cz = (int)MathF.Floor(wz / (float)Chunk.Depth);
+    _dirtyChunks.Add((cx, cz));
+  }
+
+  // ── Water Tick ────────────────────────────────────────────────────────
+  public void WaterTick()
+  {
+    _waterTickCounter++;
+    if (_waterTickCounter < 5) return;
+    _waterTickCounter = 0;
+
+    _waterSim.Tick();
+    RebuildDirtyChunks();
+  }
+
+  private void RebuildDirtyChunks()
+  {
+    foreach (var (cx, cz) in _dirtyChunks)
+    {
+      if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) continue;
+      for (int i = 0; i < ChunkMeshes.Count; i++)
+      {
+        var (mesh, _, pos) = ChunkMeshes[i];
+        if (pos.X != cx || pos.Z != cz) continue;
+        var newMesh = new ChunkMesh();
+        newMesh.Build(chunk, GetBlock, cx, cz);
+        mesh.Dispose();
+        ChunkMeshes[i] = (newMesh, chunk, pos);
+        break;
+      }
+    }
+    _dirtyChunks.Clear();
+  }
+
   public void Dispose()
   {
     foreach (var (mesh, _, _) in ChunkMeshes)
       mesh.Dispose();
     _loadedSet.Clear();
     _chunkLookup.Clear();
+    _activeWater.Clear();
     ChunkMeshes.Clear();
   }
 }

@@ -171,6 +171,7 @@ public sealed class KCraftWindow : GameWindow
       }
 
       _ticker.Update((float)args.Time);
+      _world.WaterTick();
 
       // DCL — Chunks um Player aktualisieren
       if (_ticker.Player != null)
