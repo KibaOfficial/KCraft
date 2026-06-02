@@ -5,6 +5,8 @@ using KCraft.Blocks;
 
 namespace KCraft.World.Generation;
 
+public enum Biome { Ocean, Beach, Plains }
+
 public sealed class NoiseWorldGenerator : IWorldGenerator
 {
   private readonly FastNoiseLite _noise;
@@ -13,6 +15,11 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
   public const int SeaLevel = 64;
   public const int TerrainAmplitude = 20;
 
+  // Biom-Schwellen
+  private const int OceanMax = SeaLevel -2;          // <= 62  → Ocean
+  private const int BeachMax = SeaLevel + 1;      // 65-67  → Beach
+                                                  // > 67 → Plains
+
   public NoiseWorldGenerator(int seed = 1337)
   {
     _seed = seed;
@@ -20,10 +27,17 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
     _noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
     _noise.SetFractalType(FastNoiseLite.FractalType.FBm);
     _noise.SetFractalOctaves(4);
-    _noise.SetFractalLacunarity(2.0f);   // war 0.005f
+    _noise.SetFractalLacunarity(2.0f);
     _noise.SetFractalGain(0.5f);
     _noise.SetFrequency(0.003f);
   }
+
+  private static Biome GetBiome(int surface) => surface switch
+  {
+    <= OceanMax => Biome.Ocean,
+    <= BeachMax => Biome.Beach,
+    _ => Biome.Plains,
+  };
 
   public void Generate(Chunk chunk, int chunkX = 0, int chunkZ = 0)
   {
@@ -36,25 +50,50 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
 
         float n = _noise.GetNoise(worldX, worldZ);
         int surface = SeaLevel + (int)(n * TerrainAmplitude);
+        var biome = GetBiome(surface);
 
         for (int y = 0; y < Chunk.Height; y++)
         {
           Block block;
-          if (y > surface && y <= SeaLevel) block = Block.Water; // ← Wasser
-          else if (y > surface) block = Block.Air;
+
+          if (y > surface && y <= SeaLevel)
+          {
+            block = Block.Water; // Wasser füllt Lücken bis SeaLevel
+          }
+          else if (y > surface)
+          {
+            block = Block.Air;
+          }
           else if (y == surface)
           {
-            // Unter SeaLevel kein Gras — Sand stattdessen
-            block = surface <= SeaLevel ? Block.Sand : Block.Grass;
+            block = biome switch
+            {
+              Biome.Ocean => Block.Sand,   // Meeresboden
+              Biome.Beach => Block.Sand,   // Strand
+              Biome.Plains => Block.Grass,  // Wiese
+              _ => Block.Grass,
+            };
           }
-          else if (y >= surface - 3) block = Block.Dirt;
-          else block = Block.Stone;
+          else if (y >= surface - 3)
+          {
+            block = biome switch
+            {
+              Biome.Ocean => Block.Sand,   // Meeresboden tiefer auch Sand
+              Biome.Beach => Block.Sand,
+              Biome.Plains => Block.Dirt,
+              _ => Block.Dirt,
+            };
+          }
+          else
+          {
+            block = Block.Stone;
+          }
 
           chunk.SetBlock(x, y, z, block);
         }
       }
 
-    // ── Bäume — nur auf Gras, nicht unter Wasser ──────────────────
+    // ── Bäume — nur Plains ─────────────────────────────────────
     var rng = new Random(_seed ^ (chunkX * 1234567) ^ (chunkZ * 7654321));
 
     for (int x = 2; x < Chunk.Width - 2; x++)
@@ -72,7 +111,7 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
           }
         }
         if (surfaceY == 0) continue;
-        if (surfaceY <= SeaLevel) continue; // ← kein Baum unter Wasser
+        if (GetBiome(surfaceY) != Biome.Plains) continue; // nur Plains
 
         PlaceTree(chunk, x, surfaceY, z, rng);
       }
@@ -80,9 +119,8 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
 
   private static void PlaceTree(Chunk chunk, int x, int surfaceY, int z, Random rng)
   {
-    int trunkHeight = 4 + rng.Next(0, 3); // 4, 5 oder 6
+    int trunkHeight = 4 + rng.Next(0, 3);
 
-    // Stamm
     for (int i = 1; i <= trunkHeight; i++)
     {
       int ty = surfaceY + i;
@@ -90,14 +128,13 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
         chunk.SetBlock(x, ty, z, Block.OakLog);
     }
 
-    // Krone
     int top = surfaceY + trunkHeight;
     var layers = new (int dy, int radius, float corner)[]
     {
-      ( 2, 0, 1.0f), // Einzelner Block ganz oben
-      ( 1, 1, 1.0f), // Kleiner Ring, keine Ecken
-      ( 0, 2, 0.5f), // Großer Ring, Ecken 50%
-      (-1, 2, 0.5f), // Großer Ring, Ecken 50%
+            ( 2, 0, 1.0f),
+            ( 1, 1, 1.0f),
+            ( 0, 2, 0.5f),
+            (-1, 2, 0.5f),
     };
 
     foreach (var (dy, radius, corner) in layers)
@@ -108,12 +145,10 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
         {
           bool isCorner = radius > 0 && Math.Abs(dx) == radius && Math.Abs(dz) == radius;
           if (isCorner && rng.NextSingle() > corner) continue;
-
           int lx = x + dx;
           int lz = z + dz;
           if (!chunk.IsInside(lx, ly, lz)) continue;
           if (chunk.GetBlock(lx, ly, lz) != Block.Air) continue;
-
           chunk.SetBlock(lx, ly, lz, Block.OakLeaves);
         }
     }
