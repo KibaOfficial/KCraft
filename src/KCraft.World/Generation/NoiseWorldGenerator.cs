@@ -13,11 +13,11 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
   private readonly int _seed;
 
   public const int SeaLevel = 64;
-  public const int TerrainAmplitude = 20;
+  public const int TerrainAmplitude = 25;
 
   // Biom-Schwellen
-  private const int OceanMax = SeaLevel -2;          // <= 62  → Ocean
-  private const int BeachMax = SeaLevel + 1;      // 65-67  → Beach
+  private const int OceanMax = SeaLevel - 4;          // <= 60  → Ocean
+  private const int BeachMax = SeaLevel + 2;      // 66-67  → Beach
                                                   // > 67 → Plains
 
   public NoiseWorldGenerator(int seed = 1337)
@@ -29,7 +29,7 @@ public sealed class NoiseWorldGenerator : IWorldGenerator
     _noise.SetFractalOctaves(4);
     _noise.SetFractalLacunarity(2.0f);
     _noise.SetFractalGain(0.5f);
-    _noise.SetFrequency(0.003f);
+    _noise.SetFrequency(0.005f);
   }
 
   private static Biome GetBiome(int surface) => surface switch
