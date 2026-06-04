@@ -15,7 +15,7 @@
 [![OpenGL](https://img.shields.io/badge/OpenGL-4.6-5586A4?style=flat-square&logo=opengl&logoColor=white)](https://www.opengl.org/)
 [![OpenTK](https://img.shields.io/badge/OpenTK-4.9.4-1E88E5?style=flat-square)](https://opentk.net/)
 [![Tests](https://img.shields.io/badge/Tests-50%20passing-brightgreen?style=flat-square)](./tests/)
-[![Version](https://img.shields.io/badge/Version-v0.4.0-orange?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-v0.5.0-orange?style=flat-square)]()
 [![Author](https://img.shields.io/badge/Author-KibaOfficial-blueviolet?style=flat-square&logo=github)](https://github.com/KibaOfficial)
 
 </div>
@@ -30,8 +30,8 @@ KCraft is a Minecraft clone written **completely from scratch** — no Unity, no
 
 ## Screenshots
 
-| Main Menu                                                                | In-Game + Debug Overlay                                                           |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Main Menu | In-Game + Debug Overlay |
+| --------- | ----------------------- |
 | ![KCraft menu](<docs/screenshots/day2/Screenshot 2026-05-31 161338.png>) | ![KCraft debug overlay](<docs/screenshots/day2/Screenshot 2026-05-31 161216.png>) |
 
 More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
@@ -43,7 +43,7 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 ### 🌍 World & Generation
 
 - Chunk-based world — **16×256×16** blocks per chunk
-- Dynamic chunk loading / unloading around the player
+- Spiral dynamic chunk loading / unloading around the player
 - `NoiseWorldGenerator` — FastNoiseLite (OpenSimplex2, FBm, 4 octaves) terrain generation
 - Procedural **oak tree generation**
 - Procedural **house generation**
@@ -52,13 +52,14 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - `WorldTime` — 24,000 ticks/day, SkyLight, TimeString, Day counter
 - Block registry with per-block `BlockDefinition`
 - DDA voxel raycasting (Amanatides & Woo) for targeted block detection
-- Biome system — **Plains**, **Beach**, **Ocean**
-- Water block with fluid physics simulation
-- Fluid level system (source + 7 flowing levels)
+- **Biome system** — Plains, Beach, Ocean
+- **Water physics simulation** — Level 0-7 (source + flowing), scheduled ticks, decay
+- **Corner height interpolation** — fließendes Wasser mit schräger Oberfläche wie MC
 
 ### 🎮 Gameplay
 
 - **Player Entity** — AABB collision, gravity, jump, sprint, sneak
+- **Swimming** — reduzierte Gravity + Speed im Wasser, Auftrieb mit Space
 - **Gamemodes** — Survival, Creative, Spectator
 - **Fly Mode** — Creative-style free flight
 - **Edge snapping** — can't fall off edges while sneaking
@@ -71,51 +72,54 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 ### 🎨 Rendering
 
 - Custom **GLSL shaders** (vertex + fragment)
+- **Frustum Culling** — nur sichtbare Chunks werden gerendert (~80% weniger Draw Calls)
 - **Face culling** — only visible faces generate mesh geometry
+- **Cross-chunk face visibility** — Wasser-Culling über Chunk-Grenzen
 - **Per-face textures** — grass uses separate top/side/bottom textures
-- Transparent block rendering (Oak Leaves)
+- Transparent block rendering (Oak Leaves, Water)
 - Faithful 64x development textures
 - **Biome tint** — green tint on grass via shader uniform
 - **Dynamic sky renderer** — day/night gradient, correct sun arc (east→west)
 - **Sunset colours** — orange/pink dusk transition
 - **Ambient light** — world darkens at night (~27% like MC Brightness 100)
+- **Water rendering** — translucent two-pass alpha blending, corner height interpolation
+- **Spritesheet frame extraction** — animated texture support (water_still.png)
 - **Crosshair renderer** — lightweight 2D reticle
 - **Block highlight renderer** — wireframe outline on targeted block
 - **Block icon renderer** — isometric 2D block icons in hotbar (MC face brightness)
 - **Bitmap font renderer** — Minecraft-style `ascii.png` atlas with proportional metrics
 - **2D UI renderer** — `DrawRect` + `DrawText` for all overlays and menus
-- Water rendering — translucent two-pass with alpha blending
-- Animated texture support (spritesheet frame extraction)
 
 ### 🖥️ UI System
 
 - **Main Menu** — Singleplayer, Multiplayer _(disabled)_, Benchmark, Options, Quit
 - **Pause Menu** — Back to Game, Options, Quit to Title
 - **Options Menu** — GUI Scale 1×–4×
+- **Loading Screen** — Chunk Colormap (17×17 Pixel-Grid) + Progress Bar wie MC Java Edition
 - **World Selection Screen**
 - **Create World Screen**
-- **Benchmark Result Screen**
+- **Benchmark Result Screen** — Score, Phase Stats, Hardware Info, KCraft Version
 - **Text Input System** — world names and custom seeds
-- `GameState` machine — MainMenu / Playing / Paused / Options / Benchmark
+- `GameState` machine — MainMenu / Playing / Paused / Options / Loading / Benchmark / BenchmarkResult
 - MC-accurate button colours — Normal / Hover (yellow text) / Disabled
 - `Screen` base class with `Layout` / `Draw` / `HandleClick`
 
 ### 📊 Benchmark Suite
 
-- Chunk generation benchmarking
-- Parallel chunk generation benchmarking
-- Hardware information collection
-- JSON benchmark export
+- Multi-phase benchmark (R4 / R8 / R12, 8s each, 2s warmup + 3s chunk wait)
+- Score-based recommended render distance
+- Hardware information collection (CPU, GPU, RAM, OS, OpenGL)
+- JSON benchmark export mit KCraft Version
 - Automatic benchmark IDs
 - In-game benchmark HUD
-- Benchmark result screen
+- Benchmark result screen mit Phase Stats
 - Performance comparison across hardware
 
 ### 🔧 Debug Overlay (F3)
 
 - FPS + frame time, world time + day count
 - XYZ, block coords, chunk coords, chunk-relative position
-- Loaded chunks, facing direction (N/S/E/W + yaw/pitch)
+- Loaded chunks / visible chunks (Frustum Culling Status)
 - .NET version, memory, display resolution, OpenGL version, GPU
 - Targeted block position + block ID
 - **F3+G** — chunk border wireframe
@@ -123,6 +127,16 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **F3+B** — player AABB hitbox + eye-level line
 - Current gamemode
 - Dynamic chunk statistics
+
+### ⚡ Performance
+
+- **Frustum Culling** — 6-plane AABB test, ~6x weniger Draw Calls
+- **Dictionary-based O(1) Chunk Lookup**
+- **Spiral Chunk Loading** — von innen nach außen, 1 Chunk pro Frame
+- **Dirty Chunk Budget** — max 2 Mesh-Rebuilds pro Frame
+- **Active Water HashSet** — kein Vollscan für Water Simulation
+- **RebuildNeighborsIfNeeded** — Nachbar-Chunks nur bei Wasser-Grenze neu bauen
+- **GPU Preference Selector** — Registry-basiert für NVIDIA Optimus / AMD PowerXpress
 
 ### 📦 Packaging
 
@@ -133,68 +147,84 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 
 ---
 
+## Benchmark Results
+
+| Hardware | Version | Score | Avg FPS | Recommended Radius |
+| -------- | ------- | ----- | ------- | ------------------ |
+| RTX 3060 + Ryzen 3800X | v0.3.0 | 5696 | 58 | 12 |
+| RTX 3060 + Ryzen 3800X | v0.5.0 | 4650 | 51 | 8 |
+| GTX 1660 Ti + i7-8750H | v0.5.0 | 4954 | 55 | 12 |
+| GTX 1060 + Intel i7 | v0.5.0 | 4403 | 45 | 12 |
+
+*v0.5.0 Score-Differenz zu v0.3.0 durch Wasser-Rendering + Physik-Simulation.*
+
+---
+
 ## Tech Stack
 
-| Layer         | Technology                    |
-| ------------- | ----------------------------- |
-| Language      | C# 13 / .NET 10               |
-| Windowing     | OpenTK 4.9.4 (GLFW)           |
-| Graphics      | OpenGL 4.6                    |
-| Image Loading | StbImageSharp                 |
-| Noise         | FastNoiseLite (MIT, embedded) |
-| Testing       | xUnit (50 tests, all passing) |
+| Layer | Technology |
+| ----- | ---------- |
+| Language | C# 13 / .NET 10 |
+| Windowing | OpenTK 4.9.4 (GLFW) |
+| Graphics | OpenGL 4.6 |
+| Image Loading | StbImageSharp |
+| Noise | FastNoiseLite (MIT, embedded) |
+| Testing | xUnit (50 tests, all passing) |
 
 ---
 
 ## Project Structure
 
 ```
+
 kcraft/
 ├── src/
-│   ├── KCraft.App/              # Entry point
-│   ├── KCraft.Assets/           # Texture2D, TextureManager
-│   ├── KCraft.Blocks/           # Block enum, BlockDefinition, BlockRegistry
-│   ├── KCraft.Core/             # Shared types
-│   ├── KCraft.Rendering/        # KCraftWindow, Camera, ChunkMesh,
-│   │   │                        # TextRenderer, DebugOverlay,
-│   │   │                        # ChunkBorderRenderer, SkyRenderer,
-│   │   │                        # CrosshairRenderer, BlockHighlightRenderer,
-│   │   │                        # BlockIconRenderer, HotbarRenderer,
-│   │   │                        # HitboxRenderer, WorldManager, UiScale
-│   │   ├── Benchmark/
-│   │   │    ├── BenchmarkData
-│   │   │    ├── FrameSample
-│   │   │    └── PhaseStats
-│   │   └── Ui/
-│   │        ├── UiManager
-│   │        ├── Screen
-│   │        ├── Button
-│   │        ├── TextInput
-│   │        ├── MainMenuScreen
-│   │        ├── PauseMenuScreen
-│   │        ├── OptionsScreen
-│   │        ├── SelectWorldScreen
-│   │        ├── NewWorldScreen
-│   │        ├── BenchmarkHudScreen
-│   │        └── BenchmarkResultScreen
-│   │                            # MainMenuScreen, PauseMenuScreen, OptionsScreen
-│   └── KCraft.World/            # Chunk, ChunkMath, ChunkPosition,
-│       │                        # AABB, Entity, Player,
-│       │                        # BlockRaycaster, WorldTime, WorldTicker,
-│       │                        # FastNoiseLite
-│       └── Generation/          # IWorldGenerator, FlatWorldGenerator,
-│                                # NoiseWorldGenerator
+│ ├── KCraft.App/ # Entry point, GpuSelector
+│ ├── KCraft.Assets/ # Texture2D, TextureManager
+│ ├── KCraft.Blocks/ # Block enum, BlockDefinition, BlockRegistry
+│ ├── KCraft.Core/ # KCraftVersion, shared types
+│ ├── KCraft.Rendering/ # KCraftWindow, Camera, ChunkMesh,
+│ │ │ # FrustumCuller, TextRenderer, DebugOverlay,
+│ │ │ # ChunkBorderRenderer, SkyRenderer,
+│ │ │ # CrosshairRenderer, BlockHighlightRenderer,
+│ │ │ # BlockIconRenderer, HotbarRenderer,
+│ │ │ # HitboxRenderer, WorldManager, UiScale
+│ │ ├── Benchmark/
+│ │ │ ├── BenchmarkData
+│ │ │ ├── BenchmarkSession
+│ │ │ ├── FrameSample
+│ │ │ └── PhaseStats
+│ │ └── Ui/
+│ │ ├── UiManager
+│ │ ├── Screen
+│ │ ├── Button
+│ │ ├── TextInput
+│ │ ├── LoadingScreen
+│ │ ├── MainMenuScreen
+│ │ ├── PauseMenuScreen
+│ │ ├── OptionsScreen
+│ │ ├── SelectWorldScreen
+│ │ ├── NewWorldScreen
+│ │ ├── BenchmarkHudScreen
+│ │ └── BenchmarkResultScreen
+│ └── KCraft.World/ # Chunk, ChunkMath, ChunkPosition,
+│ │ # AABB, Entity, Player,
+│ │ # BlockRaycaster, WorldTime, WorldTicker,
+│ │ # FaceVisibility, WaterSimulator, FastNoiseLite
+│ └── Generation/ # IWorldGenerator, FlatWorldGenerator,
+│ # NoiseWorldGenerator (Biome enum)
 ├── docs/
-│   └── screenshots/             # Day-by-day development screenshots
-├── installer/                   # Generated release artifacts
+│ └── screenshots/ # Day-by-day development screenshots
+├── installer/ # Generated release artifacts
 ├── tests/
-│   └── KCraft.World.Tests/      # xUnit — 50 tests, all passing
+│ └── KCraft.World.Tests/ # xUnit — 50 tests, all passing
 └── assets/
-    └── dev/
-        ├── faithful/            # Faithful 64x textures (dev placeholders)
-        │   └── FAITHFUL_LICENSE.txt
-        └── font_ascii.png    # Minecraft-style bitmap font atlas
-```
+└── dev/
+├── faithful/ # Faithful 64x textures (dev placeholders)
+│ └── FAITHFUL_LICENSE.txt
+└── font_ascii.png # Minecraft-style bitmap font atlas
+
+````
 
 ---
 
@@ -212,7 +242,7 @@ kcraft/
 git clone https://github.com/KibaOfficial/KCraft.git
 cd kcraft
 dotnet watch run --project src/KCraft.App
-```
+````
 
 ### Test
 
@@ -223,10 +253,10 @@ dotnet test
 ### Package
 
 ```bash
-.\build-release.ps1 -Version "0.2.0"
+.\build.ps1 -Version "0.5.0"
 ```
 
-Produces `installer/KCraft-v0.2.0-Setup.exe` and `installer/KCraft-v0.2.0-linux-x64.tar.gz`.
+Produces `installer/KCraft-v0.5.0-Setup.exe` and `installer/KCraft-v0.5.0-linux-x64.tar.gz`.
 
 ---
 
@@ -243,8 +273,8 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 | Input          | Action                 |
 | -------------- | ---------------------- |
 | `W A S D`      | Move                   |
-| `Space`        | Jump                   |
-| `Left Shift`   | Sneak                  |
+| `Space`        | Jump / Swim up         |
+| `Left Shift`   | Sneak / Swim down      |
 | `Left Ctrl`    | Sprint                 |
 | `Left Click`   | Break block            |
 | `Right Click`  | Place block            |
@@ -262,34 +292,46 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 ## Roadmap
 
 ### 🌍 World
-- [x] Water generation
+
+- [x] Water generation + physics
 - [x] Beaches
 - [x] Biomes (Plains, Beach, Ocean)
+- [ ] Water decay (flowing water disappears without source)
 - [ ] Better structure generation
 - [ ] More tree variants
 
 ### 🎮 Gameplay
+
+- [x] Swimming physics
+- [ ] Underwater effect (blue overlay)
 - [ ] Inventory system
 - [ ] Item system
 - [ ] Crafting system
 - [ ] Survival progression
 
 ### 🎨 Rendering
-- [ ] Frustum culling
+
+- [x] Frustum culling
+- [x] Loading screen with chunk colormap
 - [ ] Ambient occlusion
 - [ ] Clouds
 - [ ] Stars and moon
 
 ### 🌐 Multiplayer
+
 - [ ] Networking layer
 - [ ] P2P multiplayer
 - [ ] Dedicated server support
 
 ### ⚡ Performance
+
 - [x] Dynamic chunk loading
+- [x] Frustum culling
 - [x] Benchmark suite
 - [x] GPU preference selector
+- [x] Dirty chunk budget
 - [ ] Threaded mesh generation
+- [ ] Async chunk loading
 
 ---
 
@@ -311,3 +353,4 @@ Copyright © 2026 KibaOfficial. All rights reserved.
   <sub>Built with ❤️ and way too many hours of OpenGL debugging</sub><br>
   <sub><a href="https://github.com/KibaOfficial">github.com/KibaOfficial</a></sub>
 </div>
+```
