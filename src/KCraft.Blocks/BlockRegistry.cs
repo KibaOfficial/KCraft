@@ -49,7 +49,28 @@ public static class BlockRegistry
       IsTransparent = true,
       IsFluid = true,
       IsSwimmable = true,
-    },  
+    },
+    [Block.Glass] = new()
+    {
+      TextureTop = "glass",
+      TextureSide = "glass",
+      TextureBottom = "glass",
+      IsTransparent = true,
+      UsesCTM = true,
+      CTMTexture = "glass_ctm", // 4x4 sprite sheet for connected textures (top, right, bottom, left)
+    },
+    [Block.Cobblestone] = new()
+    {
+      TextureTop = "cobblestone",
+      TextureSide = "cobblestone",
+      TextureBottom = "cobblestone",
+    },
+    [Block.Gravel] = new()
+    {
+      TextureTop = "gravel",
+      TextureSide = "gravel",
+      TextureBottom = "gravel",
+    },
   };
   public static BlockDefinition Get(Block block) => Definitions[block];
 }

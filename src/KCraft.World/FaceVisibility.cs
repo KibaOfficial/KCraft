@@ -12,6 +12,7 @@ public static class FaceVisibility
     Block.Air => true,
     Block.OakLeaves => true,
     Block.Water => true,
+    Block.Glass => true,
     _ => false,
   };
 
@@ -34,12 +35,13 @@ public static class FaceVisibility
     // Innerhalb des Chunks
     if (chunk.IsInside(nx, ny, nz))
     {
-      var neighbor = chunk.GetBlock(nx, ny, nz);
+      var neighbor = chunk.GetBlock(nx, ny, nz); // ← erst hier!
       if (current == Block.Water && neighbor == Block.Water) return false;
+      if (current == Block.Glass && neighbor == Block.Glass) return false;
       return IsTransparent(neighbor);
     }
 
-    // Chunk-Grenze — getWorldBlock nutzen
+    // Chunk-Grenze
     if (getWorldBlock != null)
     {
       int wx = chunkX * Chunk.Width + nx;
@@ -47,8 +49,9 @@ public static class FaceVisibility
       int wz = chunkZ * Chunk.Depth + nz;
       var worldNeighbor = getWorldBlock(wx, wy, wz);
 
-      if (worldNeighbor == null) return true; // Chunk nicht geladen
+      if (worldNeighbor == null) return true;
       if (current == Block.Water && worldNeighbor == Block.Water) return false;
+      if (current == Block.Glass && worldNeighbor == Block.Glass) return false;
       return IsTransparent(worldNeighbor.Value);
     }
 

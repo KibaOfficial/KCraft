@@ -25,6 +25,17 @@ public sealed class TextureManager : IDisposable
     return loaded;
   }
 
+  public Texture2D GetCTMTile(string ctmTextureName, int tileIndex)
+  {
+    string key = $"{ctmTextureName}#{tileIndex}";
+    if (_cache.TryGetValue(key, out var tex)) return tex;
+
+    var path = Path.Combine(_basePath, $"{ctmTextureName}.png");
+    var loaded = new Texture2D(path, tileX: tileIndex % 4, tileY: tileIndex / 4, tilesPerRow: 4);
+    _cache[key] = loaded;
+    return loaded;
+  }
+
   public void Dispose()
   {
     foreach (var tex in _cache.Values)

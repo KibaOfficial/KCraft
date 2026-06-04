@@ -56,6 +56,27 @@ public sealed class ChunkMesh : IDisposable
 
             if (!FaceVisibility.IsVisible(chunk, x, y, z, face, getWorldBlock, chunkX, chunkZ)) continue;
 
+
+            // CTM Blöcke
+            if (def.UsesCTM && !string.IsNullOrEmpty(def.CTMTexture))
+            {
+              int tileIndex = GetCTMTileIndex(chunk, getWorldBlock, chunkX, chunkZ, x, y, z, face, block);
+              string ctmTexName = $"CTM:{def.CTMTexture}:{tileIndex}";
+
+              if (!_facesByTexture.TryGetValue(ctmTexName, out var ctmGroup))
+              {
+                ctmGroup = (new List<float>(), new List<uint>(), 0);
+                _facesByTexture[ctmTexName] = ctmGroup;
+              }
+
+              var cv = ctmGroup.verts;
+              var ci = ctmGroup.indices;
+              var co = ctmGroup.offset;
+              AddFace(cv, ci, ref co, x, y, z, face);
+              _facesByTexture[ctmTexName] = (cv, ci, co);
+              continue; // ← wichtig, nicht weiter zu normalem texName
+            }
+
             string texName = face switch
             {
               FaceDirection.Up => def.TextureTop,
@@ -121,14 +142,28 @@ public sealed class ChunkMesh : IDisposable
     GL.BindVertexArray(_vao);
     foreach (var (texName, startIndex, count) in _subMeshes)
     {
-      textures.Get(texName).Bind();
+      // CTM Tile
+      if (texName.StartsWith("CTM:"))
+      {
+        var parts = texName.Split(':');
+        var ctmName = parts[1]; // "glass_ctm"
+        var tileIndex = int.Parse(parts[2]); // "0"
+        textures.GetCTMTile(ctmName, tileIndex).Bind();
+      }
+      else
+      {
+        textures.Get(texName).Bind();
+      }
+
       GL.Uniform1(uTexLocation, 0);
+
       if (texName == "grass_block_top")
         GL.Uniform3(uTintLocation, 0.48f, 0.74f, 0.36f);
       else if (texName == "oak_leaves")
         GL.Uniform3(uTintLocation, 0.38f, 0.62f, 0.25f);
       else
         GL.Uniform3(uTintLocation, 1.0f, 1.0f, 1.0f);
+
       GL.DrawElements(PrimitiveType.Triangles, count,
           DrawElementsType.UnsignedInt, startIndex * sizeof(uint));
     }
@@ -403,5 +438,71 @@ public sealed class ChunkMesh : IDisposable
   {
     if (_vao != 0) { GL.DeleteVertexArray(_vao); GL.DeleteBuffer(_vbo); GL.DeleteBuffer(_ebo); }
     if (_waterVao != 0) { GL.DeleteVertexArray(_waterVao); GL.DeleteBuffer(_waterVbo); GL.DeleteBuffer(_waterEbo); }
+  }
+
+  // ── Connected Texture Method (CTM) ───────────────────────────────────────────────────────────
+  private static int GetCTMTileIndex(Chunk chunk, Func<int, int, int, Block?>? getWorldBlock,
+    int chunkX, int chunkZ, int x, int y, int z, FaceDirection face, Block block)
+  {
+    bool left, right, up, down;
+
+    switch (face)
+    {
+      case FaceDirection.North:
+        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x - 1, y, z, block);
+        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x + 1, y, z, block);
+        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y + 1, z, block);
+        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y - 1, z, block);
+        break;
+      case FaceDirection.South:
+        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x + 1, y, z, block);
+        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x - 1, y, z, block);
+        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y + 1, z, block);
+        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y - 1, z, block);
+        break;
+      case FaceDirection.East:
+        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z - 1, block);
+        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z + 1, block);
+        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y + 1, z, block);
+        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y - 1, z, block);
+        break;
+      case FaceDirection.West:
+        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z + 1, block);
+        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z - 1, block);
+        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y + 1, z, block);
+        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y - 1, z, block);
+        break;
+      case FaceDirection.Up:
+        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x - 1, y, z, block);
+        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x + 1, y, z, block);
+        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z + 1, block);
+        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z - 1, block);
+        break;
+      default: // Down
+        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x - 1, y, z, block);
+        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x + 1, y, z, block);
+        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z - 1, block);
+        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z + 1, block);
+        break;
+    }
+
+    int index = 0;
+    if (left) index |= 1;
+    if (right) index |= 2;
+    if (up) index |= 4;
+    if (down) index |= 8;
+    return index;
+  }
+
+  private static bool GetNeighbor(Chunk chunk, Func<int, int, int, Block?>? getWorldBlock,
+      int chunkX, int chunkZ, int x, int y, int z, Block sameBlock)
+  {
+    if (chunk.IsInside(x, y, z))
+      return chunk.GetBlock(x, y, z) == sameBlock;
+
+    if (getWorldBlock == null) return false;
+    int wx = chunkX * Chunk.Width + x;
+    int wz = chunkZ * Chunk.Depth + z;
+    return getWorldBlock(wx, y, wz) == sameBlock;
   }
 }
