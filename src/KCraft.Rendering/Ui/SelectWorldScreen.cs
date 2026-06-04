@@ -1,6 +1,7 @@
 // Copyright (c) 2026 KibaOfficial
 // All rights reserved.
 
+using KCraft.Core;
 using KCraft.World;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -241,7 +242,7 @@ public sealed class SelectWorldScreen : Screen
         2 => "Spectator Mode",
         _ => "Survival Mode"
       };
-      string line2 = $"{gameMode}  -  KCraft v0.4.0";
+      string line2 = $"{gameMode}  - {KCraftVersion.FullName}";
       Text.DrawText(line2, textX, nameY + 20f * scale,
           screen, scale: scale * 0.85f, color: SubDim);
 

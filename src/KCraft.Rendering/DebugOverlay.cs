@@ -4,6 +4,7 @@
 using OpenTK.Mathematics;
 using OpenTK.Graphics.OpenGL4;
 using KCraft.World;
+using KCraft.Core;
 
 namespace KCraft.Rendering;
 
@@ -24,7 +25,7 @@ public sealed class DebugOverlay : IDisposable
   }
 
   public void Draw(Vector2 screen, Camera camera, double fps,
-    int chunks, RaycastHit lastHit, WorldTime time, bool freeCam, bool _hitboxVisible)
+    int chunks, int visibleChunks, RaycastHit lastHit, WorldTime time, bool freeCam, bool _hitboxVisible)
   {
     if (!Visible) return;
 
@@ -49,7 +50,7 @@ public sealed class DebugOverlay : IDisposable
 
     LineParts(leftX, ref leftY, lineH, screen,
       ("KCraft ", Orange),
-      ("v0.4.0", Green));
+      ($"v{KCraftVersion.Version}", Green));
     LineParts(leftX, ref leftY, lineH, screen,
       ($"{fps:F0} fps ", Green),
       ($"/ {1000.0 / fps:F1} ms", Cyan));
@@ -84,14 +85,16 @@ public sealed class DebugOverlay : IDisposable
     Gap(ref leftY);
 
     LineParts(leftX, ref leftY, lineH, screen,
-      ("Loaded Chunks: ", Blue),
-      ($"{chunks}", Yellow));
+    ("Loaded Chunks: ", Blue),
+    ($"{chunks}", Yellow));
     LineParts(leftX, ref leftY, lineH, screen,
-      ("Chunk Meshes: ", Blue),
-      ($"{chunks}", Yellow));
+        ("Chunk Meshes: ", Blue),
+        ($"{visibleChunks}", Yellow),
+        (" / ", Gray),
+        ($"{chunks}", Yellow));
     LineParts(leftX, ref leftY, lineH, screen,
-      ("Chunk Culling: ", Blue),
-      ("Disabled", Gray));
+        ("Chunk Culling: ", Blue),
+        ("Enabled", Green)); // ← war Disabled
     LineParts(leftX, ref leftY, lineH, screen,
       ("Dimension: ", Green),
       ("kcraft:overworld", Cyan));

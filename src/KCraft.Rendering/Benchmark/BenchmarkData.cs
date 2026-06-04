@@ -19,6 +19,7 @@ public sealed class PhaseStats
 public sealed class BenchmarkData
 {
   public string Id { get; set; } = "";
+  public string KCraftVersion { get; set; } = "";
   public DateTime Timestamp { get; set; }
   public string Cpu { get; set; } = "";
   public int CpuCores { get; set; }

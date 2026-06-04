@@ -10,6 +10,7 @@ using KCraft.Assets;
 using KCraft.World;
 using KCraft.Rendering.Ui;
 using KCraft.Rendering.Benchmark;
+using KCraft.Core;
 
 namespace KCraft.Rendering;
 
@@ -25,11 +26,11 @@ public sealed class KCraftWindow : GameWindow
   private Camera _camera = null!;
   private GameModeSwitcher _gameModeSwitcher = null!;
   private GameMode _currentGameMode = GameMode.Survival;
+  private string _pendingWorldName = "";
   private string _currentWorldName = "default";
-
+  private Dictionary<(int cx, int cz), byte[]>? _pendingSavedChunks;
   // ── Assets ────────────────────────────────────────────────────────────
   private TextureManager _textureManager = null!;
-
   // ── Renderers ─────────────────────────────────────────────────────────
   private SkyRenderer _sky = null!;
   private DebugOverlay _debug = null!;
@@ -40,7 +41,6 @@ public sealed class KCraftWindow : GameWindow
   private HotbarRenderer _hotbar = null!;
   private HitboxRenderer _hitbox = null!;
   private BenchmarkSession? _benchmark;
-
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
   private Vector2 _mousePosition;
@@ -49,7 +49,10 @@ public sealed class KCraftWindow : GameWindow
   private bool _freeCam = false;
   private float _jumpPressTimer = 0f;
   private bool _jumpPressedLastFrame = false;
-
+  // ── Fields ────────────────────────────────────────────────────────────
+  private readonly FrustumCuller _frustum = new();
+  private int _visibleChunks;
+  private readonly List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> _visibleList = [];
   // ── Shaders ───────────────────────────────────────────────────────────
   private const string VertexShaderSource = """
     #version 410 core
@@ -87,7 +90,7 @@ public sealed class KCraftWindow : GameWindow
     new NativeWindowSettings
     {
       ClientSize = new Vector2i(1280, 720),
-      Title = "KCraft v0.4.0",
+      Title = KCraftVersion.FullName,
       APIVersion = new Version(4, 6),
     })
   { }
@@ -203,6 +206,42 @@ public sealed class KCraftWindow : GameWindow
         CursorState = CursorState.Normal;
       }
     }
+    if (_ui.State == GameState.Loading)
+    {
+      _world.UpdateChunks(_ticker.Player!.Position);
+      _ui.Loading.LoadedChunks = _world.ChunkCount;
+
+      // Geladene Chunks in Colormap markieren
+      foreach (var (_, _, pos) in _world.ChunkMeshes)
+        _ui.Loading.MarkLoaded(pos.X, pos.Z);
+
+      if (_ui.Loading.IsReady)
+      {
+        // Gespeicherte Chunks laden wenn vorhanden
+        if (_pendingSavedChunks != null)
+        {
+          foreach (var ((cx, cz), rawData) in _pendingSavedChunks)
+          {
+            for (int i = 0; i < _world.ChunkMeshes.Count; i++)
+            {
+              var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
+              if (chunkPos.X != cx || chunkPos.Z != cz) continue;
+              chunk.LoadRawBlocks(rawData);
+              var newMesh = new ChunkMesh();
+              newMesh.Build(chunk, _world.GetBlock, cx, cz);
+              mesh.Dispose();
+              _world.ChunkMeshes[i] = (newMesh, chunk, chunkPos);
+              break;
+            }
+          }
+          _pendingSavedChunks = null;
+        }
+
+        _ui.SetState(GameState.Playing);
+        CursorState = CursorState.Grabbed;
+        _firstMouse = true;
+      }
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -246,7 +285,7 @@ public sealed class KCraftWindow : GameWindow
       if (_ui.State == GameState.Playing || _ui.State == GameState.Paused)
       {
         _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
-            _world.ChunkCount, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
+          _world.ChunkCount, _visibleChunks, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
         _gameModeSwitcher.Draw(new Vector2(Size.X, Size.Y));
         _crosshair.Draw(new Vector2(Size.X, Size.Y));
         _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
@@ -278,9 +317,17 @@ public sealed class KCraftWindow : GameWindow
     int uTex = GL.GetUniformLocation(_shader, "uTexture");
     int uTint = GL.GetUniformLocation(_shader, "uTint");
 
+    // Frustum updaten + sichtbare Chunks sammeln (kein Alloc pro Frame)
+    _frustum.Update(view * projection);
+    _visibleList.Clear();
+    foreach (var item in _world.ChunkMeshes)
+      if (_frustum.IsChunkVisible(item.chunkPos.X, item.chunkPos.Z))
+        _visibleList.Add(item);
+    _visibleChunks = _visibleList.Count;
+
     // ── Pass 1: Solide Blöcke ─────────────────────────────────────────
     GL.Uniform1(_uAlpha, 1.0f);
-    foreach (var (mesh, _, chunkPos) in _world.ChunkMeshes)
+    foreach (var (mesh, _, chunkPos) in _visibleList)
     {
       var model = Matrix4.CreateTranslation(
           new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
@@ -294,7 +341,7 @@ public sealed class KCraftWindow : GameWindow
     GL.DepthMask(false);
     GL.Uniform1(_uAlpha, 0.8f);
 
-    foreach (var (mesh, _, chunkPos) in _world.ChunkMeshes)
+    foreach (var (mesh, _, chunkPos) in _visibleList)
     {
       var model = Matrix4.CreateTranslation(
           new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
@@ -628,12 +675,39 @@ public sealed class KCraftWindow : GameWindow
 
   private void LoadAndStartWorld(string name)
   {
-    LoadWorld(name);
-    _ui.SetState(GameState.Playing);
-    CursorState = CursorState.Grabbed;
-    _firstMouse = true;
-  }
+    _pendingWorldName = name;
+    _currentWorldName = name;
 
+    var (data, chunks) = WorldSaveManager.Load(name);
+
+    // Welt neu erstellen
+    _world.Dispose();
+    int seed = data?.Seed ?? 42;
+    _world = new WorldManager(seed: seed, lazyLoad: true);
+    _ticker.SetGetBlock(_world.GetBlock);
+
+    if (data != null)
+    {
+      _ticker.Player!.Position = new Vector3(data.PlayerX, data.PlayerY, data.PlayerZ);
+      _camera.SetRotation(data.CameraYaw, data.CameraPitch);
+      _currentGameMode = (GameMode)data.GameMode;
+      ApplyGameMode(_currentGameMode);
+      _pendingSavedChunks = chunks;
+    }
+    else
+    {
+      _ticker.Player!.Position = new Vector3(8, 80, -10);
+    }
+
+    int pcx = (int)MathF.Floor(_ticker.Player!.Position.X / 16f);
+    int pcz = (int)MathF.Floor(_ticker.Player!.Position.Z / 16f);
+    _ui.Loading.Reset();
+    _ui.Loading.SetCenter(pcx, pcz);
+    int r = WorldManager.RenderRadius;
+    _ui.Loading.TargetChunks = (r * 2 + 1) * (r * 2 + 1); // 289 für R8
+    _ui.SetState(GameState.Loading);
+    CursorState = CursorState.Normal;
+  }
   private void CreateAndStartWorld(string name, int? seed)
   {
     _currentWorldName = name;
@@ -660,11 +734,11 @@ public sealed class KCraftWindow : GameWindow
     _benchmark.Start();
     _ui.BenchmarkHud.Session = _benchmark;
 
-    // Welt für Benchmark laden
     _world.Dispose();
     _world = new WorldManager(seed: 12345);
     _ticker.SetGetBlock(_world.GetBlock);
-    _ticker.Player!.Position = new Vector3(0, 90, 0);
+    _ticker.Player!.Position = new Vector3(0, 120, 0);
+    _camera.SetRotation(0f, -25f);
 
     _ui.SetState(GameState.Benchmark);
     CursorState = CursorState.Grabbed;

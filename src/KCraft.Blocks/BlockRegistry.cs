@@ -1,7 +1,6 @@
 // Copyright (c) 2026 KibaOfficial
 // All rights reserved.
 
-using KCraft.Blocks;
 namespace KCraft.Blocks;
 
 public static class BlockRegistry

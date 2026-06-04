@@ -48,6 +48,9 @@ public sealed class BenchmarkSession
 
   private readonly string _gpuRenderer;
   private readonly string _glVersion;
+  private bool _waitingForChunks = true;
+  private float _chunkWaitTimer = 0f;
+  private const float ChunkWaitTime = 3f;
 
   public BenchmarkSession(string gpuRenderer, string glVersion)
   {
@@ -80,6 +83,16 @@ public sealed class BenchmarkSession
   public void Update(float deltaTime, int chunkCount)
   {
     if (!IsRunning || IsFinished) return;
+
+    // Warten bis Chunks geladen sind
+    if (_waitingForChunks)
+    {
+      _chunkWaitTimer += deltaTime;
+      PhaseLabel = $"Loading chunks... ({chunkCount} loaded)";
+      if (_chunkWaitTimer >= ChunkWaitTime)
+        _waitingForChunks = false;
+      return; // noch nicht messen
+    }
 
     _elapsed += deltaTime;
     _phaseElapsed += deltaTime;
@@ -164,6 +177,7 @@ public sealed class BenchmarkSession
     Result = new BenchmarkData
     {
       Id = $"BENCH-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4].ToUpper()}",
+      KCraftVersion = Core.KCraftVersion.Version,
       Timestamp = DateTime.Now,
       Cpu = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "Unknown",
       CpuCores = Environment.ProcessorCount,

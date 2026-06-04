@@ -7,7 +7,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace KCraft.Rendering.Ui;
 
-public enum GameState { MainMenu, Playing, Paused, Options, NewWorld, SelectWorld, Benchmark, BenchmarkResult }
+public enum GameState { MainMenu, Playing, Paused, Options, NewWorld, SelectWorld, Benchmark, BenchmarkResult, Loading }
 
 public sealed class UiManager : IDisposable
 {
@@ -19,6 +19,7 @@ public sealed class UiManager : IDisposable
     public readonly SelectWorldScreen SelectWorld;
     public readonly BenchmarkHudScreen BenchmarkHud;
     public readonly BenchmarkResultScreen BenchmarkResult;
+    public readonly LoadingScreen Loading;
     public event Action? OnBenchmarkStart;
     public GameState State { get; private set; } = GameState.MainMenu;
     public GameState PreviousState { get; private set; } = GameState.MainMenu;
@@ -55,6 +56,9 @@ public sealed class UiManager : IDisposable
         // Options
         Options.OnBack += () => SetState(PreviousState);
         Options.OnBenchmark += () => OnBenchmarkStart?.Invoke();
+
+        // Loading
+        Loading = new LoadingScreen(_text);
 
 
         // NewWorld
@@ -101,6 +105,7 @@ public sealed class UiManager : IDisposable
         MainMenu.Layout(virtualScreen);
         PauseMenu.Layout(virtualScreen);
         Options.Layout(virtualScreen);
+        Loading.Layout(_screen);
         NewWorld.Layout(virtualScreen);
         SelectWorld.Layout(virtualScreen);
         BenchmarkHud.Layout(virtualScreen);
@@ -118,6 +123,7 @@ public sealed class UiManager : IDisposable
         else if (State == GameState.NewWorld) NewWorld.Draw(screen, mx, my);
         else if (State == GameState.SelectWorld) SelectWorld.Draw(screen, mx, my);
         else if (State == GameState.BenchmarkResult) BenchmarkResult.Draw(screen, mx, my);
+        else if (State == GameState.Loading) Loading.Draw(screen, mx, my);
     }
 
     public void HandleClick(float mx, float my)
@@ -128,6 +134,7 @@ public sealed class UiManager : IDisposable
         else if (State == GameState.NewWorld) NewWorld.HandleClick(mx, my);
         else if (State == GameState.SelectWorld) SelectWorld.HandleClick(mx, my);
         else if (State == GameState.BenchmarkResult) BenchmarkResult.HandleClick(mx, my);
+        else if (State == GameState.Loading) Loading.HandleClick(mx, my);
     }
 
     public void HandleMouseMove(float mx, float my)
@@ -137,6 +144,7 @@ public sealed class UiManager : IDisposable
         Options.HandleMouseMove(mx, my);
         NewWorld.HandleMouseMove(mx, my);
         SelectWorld.HandleMouseMove(mx, my);
+        Loading.HandleMouseMove(mx, my);
     }
 
     public void Update(float deltaTime)
@@ -146,6 +154,7 @@ public sealed class UiManager : IDisposable
         else if (State == GameState.Options) Options.Update(deltaTime);
         else if (State == GameState.NewWorld) NewWorld.Update(deltaTime);
         else if (State == GameState.SelectWorld) SelectWorld.Update(deltaTime);
+        else if (State == GameState.Loading) Loading.Update(deltaTime);
     }
 
     public void HandleKeyDown(Keys key, bool shift)
@@ -155,6 +164,7 @@ public sealed class UiManager : IDisposable
         else if (State == GameState.Options) Options.HandleKeyDown(key, shift);
         else if (State == GameState.NewWorld) NewWorld.HandleKeyDown(key, shift);
         else if (State == GameState.SelectWorld) SelectWorld.HandleKeyDown(key, shift);
+        else if (State == GameState.Loading) Loading.HandleKeyDown(key, shift);
     }
 
     public void HandleTextInput(char c)
@@ -164,6 +174,7 @@ public sealed class UiManager : IDisposable
         else if (State == GameState.Options) Options.HandleTextInput(c);
         else if (State == GameState.NewWorld) NewWorld.HandleTextInput(c);
         else if (State == GameState.SelectWorld) SelectWorld.HandleTextInput(c);
+        else if (State == GameState.Loading) Loading.HandleTextInput(c);
     }
 
     public void Dispose() => _text.Dispose();

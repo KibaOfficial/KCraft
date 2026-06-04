@@ -31,15 +31,18 @@ public sealed class WorldManager : IDisposable
   private bool IsLoaded(int cx, int cz) => _loadedSet.Contains((cx, cz));
 
   // ── Init ──────────────────────────────────────────────────────────────
-  public WorldManager(int seed = 42)
+  public WorldManager(int seed = 42, bool lazyLoad = false)
   {
     Seed = seed;
     _generator = new NoiseWorldGenerator(seed: seed);
     _waterSim = new WaterSimulator(GetWorldFluid, SetWorldFluid, MarkDirty);
 
-    for (int cx = -RenderRadius; cx <= RenderRadius; cx++)
-      for (int cz = -RenderRadius; cz <= RenderRadius; cz++)
-        LoadChunk(cx, cz);
+    if (!lazyLoad)
+    {
+      for (int cx = -RenderRadius; cx <= RenderRadius; cx++)
+        for (int cz = -RenderRadius; cz <= RenderRadius; cz++)
+          LoadChunk(cx, cz);
+    }
   }
 
   // ── Dynamic Chunk Loading ─────────────────────────────────────────────
@@ -54,7 +57,6 @@ public sealed class WorldManager : IDisposable
       var (mesh, _, pos) = ChunkMeshes[i];
       if (Math.Abs(pos.X - pcx) > unloadRadius || Math.Abs(pos.Z - pcz) > unloadRadius)
       {
-        // Water-Blöcke aus aktiver Liste entfernen
         if (_chunkLookup.TryGetValue((pos.X, pos.Z), out var unloadChunk))
         {
           for (int x = 0; x < Chunk.Width; x++)
@@ -73,15 +75,17 @@ public sealed class WorldManager : IDisposable
       }
     }
 
-    // Load — nur 1 Chunk pro Frame
-    for (int cx = pcx - loadRadius; cx <= pcx + loadRadius; cx++)
-      for (int cz = pcz - loadRadius; cz <= pcz + loadRadius; cz++)
-      {
-        if (Math.Abs(cx - pcx) > loadRadius || Math.Abs(cz - pcz) > loadRadius) continue;
-        if (IsLoaded(cx, cz)) continue;
-        LoadChunk(cx, cz);
-        return;
-      }
+    // Load — Spiral von innen nach außen, 1 Chunk pro Frame
+    for (int radius = 0; radius <= loadRadius; radius++)
+      for (int cx = pcx - radius; cx <= pcx + radius; cx++)
+        for (int cz = pcz - radius; cz <= pcz + radius; cz++)
+        {
+          if (Math.Abs(cx - pcx) != radius && Math.Abs(cz - pcz) != radius) continue;
+          if (Math.Abs(cx - pcx) > loadRadius || Math.Abs(cz - pcz) > loadRadius) continue;
+          if (IsLoaded(cx, cz)) continue;
+          LoadChunk(cx, cz);
+          return;
+        }
   }
 
   private void LoadChunk(int cx, int cz)
@@ -291,8 +295,17 @@ public sealed class WorldManager : IDisposable
 
   private void RebuildDirtyChunks()
   {
+    int rebuilt = 0;
+    var remaining = new List<(int cx, int cz)>();
+
     foreach (var (cx, cz) in _dirtyChunks)
     {
+      if (rebuilt >= 2)
+      {
+        remaining.Add((cx, cz));
+        continue;
+      }
+
       if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) continue;
       for (int i = 0; i < ChunkMeshes.Count; i++)
       {
@@ -302,10 +315,14 @@ public sealed class WorldManager : IDisposable
         newMesh.Build(chunk, GetBlock, cx, cz);
         mesh.Dispose();
         ChunkMeshes[i] = (newMesh, chunk, pos);
+        rebuilt++;
         break;
       }
     }
+
     _dirtyChunks.Clear();
+    foreach (var r in remaining)
+      _dirtyChunks.Add(r);
   }
 
   public void Dispose()

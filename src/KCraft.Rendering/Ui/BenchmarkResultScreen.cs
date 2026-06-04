@@ -85,9 +85,24 @@ public sealed class BenchmarkResultScreen : Screen
     DrawMetricRow("Avg Frame", $"{Data.AvgFrameMs:F2}ms", col1X, rowY + 36f * s, s, screen, White);
     DrawMetricRow("Chunk Gen Avg", $"{Data.ChunkGenAvgMs:F2}ms", col2X, rowY + 36f * s, s, screen, White);
     DrawMetricRow("Total Chunks", $"{Data.TotalChunks}", col1X, rowY + 54f * s, s, screen, Gray);
+    float nextSectionY = rowY + 76f * s;
+    if (Data.PhaseStats != null && Data.PhaseStats.Length > 0)
+    {
+      Text.DrawRect(panelX, rowY + 66f * s, panelW, 1f, screen, Divider);
+      Text.DrawText("Phase Results:", col1X + 4f * s, rowY + 70f * s, screen, scale: s * 0.85f, color: Gray);
+      for (int i = 0; i < Data.PhaseStats.Length; i++)
+      {
+        var ps = Data.PhaseStats[i];
+        string phLine = $"R{ps.RenderRadius}: {ps.AvgFps:F0} FPS avg  |  {ps.P1LowFps:F0} FPS 1% low";
+        Text.DrawText(phLine, col1X + 4f * s, rowY + (82f + i * 12f) * s,
+            screen, scale: s * 0.8f, color: White);
+      }
+
+      nextSectionY = rowY + (92f + Data.PhaseStats.Length * 12f) * s;
+    }
 
     // ── Hardware ──────────────────────────────────────────────────────
-    float hwY = rowY + 76f * s;
+    float hwY = nextSectionY;
     Text.DrawRect(panelX, hwY - 4f * s, panelW, 1f, screen, Divider);
 
     DrawMetricRow("CPU", $"{Data.Cpu} ({Data.CpuCores} cores)", col1X, hwY, s, screen, Gray);
@@ -98,6 +113,12 @@ public sealed class BenchmarkResultScreen : Screen
     // ── ID ────────────────────────────────────────────────────────────
     float idW = Text.MeasureTextWidth(Data.Id, s * 0.8f);
     Text.DrawText(Data.Id, cx - idW / 2f, hwY + 58f * s,
+        screen, scale: s * 0.8f, color: new Vector4(0.4f, 0.4f, 0.4f, 1f));
+
+    // ── KCraft Version ────────────────────────────────────────────────
+    string version = $"KCraft v{Data.KCraftVersion}";
+    float vw = Text.MeasureTextWidth(version, s * 0.8f);
+    Text.DrawText(version, cx - vw / 2f, hwY + 70f * s,
         screen, scale: s * 0.8f, color: new Vector4(0.4f, 0.4f, 0.4f, 1f));
 
     foreach (var btn in Buttons)
