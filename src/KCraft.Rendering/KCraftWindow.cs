@@ -109,7 +109,7 @@ public sealed class KCraftWindow : GameWindow
     _ticker = new WorldTicker();
     _world = new WorldManager();
     _ticker.Player = new Player(new Vector3(8, 80, -10));
-    _ticker.SetGetBlock(_world.GetBlock);
+    SetTickerWorldQueries();
     _textureManager = new TextureManager("assets/dev/faithful");
 
     InitRenderers();
@@ -147,7 +147,12 @@ public sealed class KCraftWindow : GameWindow
       bool jumpNow = KeyboardState.IsKeyDown(Keys.Space);
       if (jumpNow && !_jumpPressedLastFrame)
       {
-        if (_jumpPressTimer > 0f)
+        if (_ticker.Player is { IsInWater: true })
+        {
+          _jumpPressTimer = 0f;
+          _ticker.Player.Jump();
+        }
+        else if (_jumpPressTimer > 0f)
         {
           _ticker.Player?.ToggleFly();
           _jumpPressTimer = 0f;
@@ -228,7 +233,7 @@ public sealed class KCraftWindow : GameWindow
               if (chunkPos.X != cx || chunkPos.Z != cz) continue;
               chunk.LoadRawBlocks(rawData);
               var newMesh = new ChunkMesh();
-              newMesh.Build(chunk, _world.GetBlock, cx, cz);
+              newMesh.Build(chunk, _world.GetBlock, cx, cz, _world.GetWorldFluid);
               mesh.Dispose();
               _world.ChunkMeshes[i] = (newMesh, chunk, chunkPos);
               break;
@@ -583,6 +588,12 @@ public sealed class KCraftWindow : GameWindow
     _gameModeSwitcher = new GameModeSwitcher(font);
   }
 
+  private void SetTickerWorldQueries()
+  {
+    _ticker.SetGetBlock(_world.GetSolidBlock);
+    _ticker.SetWorldBlockQuery(_world.GetBlock);
+  }
+
   private void InitUi()
   {
     _ui = new UiManager("assets/dev/font_ascii.png");
@@ -667,7 +678,7 @@ public sealed class KCraftWindow : GameWindow
     {
       var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
       var newMesh = new ChunkMesh();
-      newMesh.Build(chunk, _world.GetBlock, chunkPos.X, chunkPos.Z);
+      newMesh.Build(chunk, _world.GetBlock, chunkPos.X, chunkPos.Z, _world.GetWorldFluid);
       mesh.Dispose();
       _world.ChunkMeshes[i] = (newMesh, chunk, chunkPos);
     }
@@ -684,7 +695,7 @@ public sealed class KCraftWindow : GameWindow
     _world.Dispose();
     int seed = data?.Seed ?? 42;
     _world = new WorldManager(seed: seed, lazyLoad: true);
-    _ticker.SetGetBlock(_world.GetBlock);
+    SetTickerWorldQueries();
 
     if (data != null)
     {
@@ -715,7 +726,7 @@ public sealed class KCraftWindow : GameWindow
 
     _world.Dispose();
     _world = new WorldManager(seed: actualSeed);
-    _ticker.SetGetBlock(_world.GetBlock);
+    SetTickerWorldQueries();
     _ticker.Player!.Position = new Vector3(8, 80, -10);
     _camera.SetRotation(-90f, 0f);
     _currentGameMode = GameMode.Survival;
@@ -736,7 +747,7 @@ public sealed class KCraftWindow : GameWindow
 
     _world.Dispose();
     _world = new WorldManager(seed: 12345);
-    _ticker.SetGetBlock(_world.GetBlock);
+    SetTickerWorldQueries();
     _ticker.Player!.Position = new Vector3(0, 120, 0);
     _camera.SetRotation(0f, -25f);
 

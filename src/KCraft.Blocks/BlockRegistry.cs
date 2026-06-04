@@ -45,8 +45,10 @@ public static class BlockRegistry
       TextureTop = "water_still",
       TextureSide = "water_still",
       TextureBottom = "water_still",
+      IsSolid = false,
       IsTransparent = true,
       IsFluid = true,
+      IsSwimmable = true,
     },  
   };
   public static BlockDefinition Get(Block block) => Definitions[block];

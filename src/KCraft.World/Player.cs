@@ -22,8 +22,16 @@ public sealed class Player : Entity
   public const float FlySpeed = 1.2f;
   public const float FlySprintSpeed = 2.4f;
   public const float Drag = 0.6f;
+  public const float WaterGravity = -5.0f;
+  public const float WaterDrag = 0.82f;
+  public const float WaterMoveScale = 0.45f;
+  public const float SwimAcceleration = 11.0f;
+  public const float SinkAcceleration = -3.0f;
+  public const float MaxWaterVerticalSpeed = 3.0f;
 
   private bool _pendingSneaking;
+  private bool _pendingSwimUp;
+  private bool _pendingSwimDown;
 
   // ── State ─────────────────────────────────────────────────────────────
   public bool IsSneaking { get; private set; }
@@ -31,6 +39,8 @@ public sealed class Player : Entity
   public bool IsFlying { get; private set; }
   public bool IsCreative { get; set; }
   public bool IsSpectator { get; set; }
+  public bool IsInWater { get; private set; }
+  public bool EyesInWater { get; private set; }
 
   // ── Override Height dynamisch ─────────────────────────────────────────
   public override float Height => IsSneaking ? HeightSneak : HeightNormal;
@@ -42,8 +52,13 @@ public sealed class Player : Entity
   public Player(Vector3 spawnPos) : base(spawnPos) { }
 
   public override void Tick(Func<int, int, int, Block?> getBlock)
+    => Tick(getBlock, getBlock);
+
+  public void Tick(Func<int, int, int, Block?> getCollisionBlock,
+      Func<int, int, int, Block?> getWorldBlock)
   {
     IsSneaking = _pendingSneaking;
+    UpdateWaterState(getWorldBlock);
 
     // Spectator — noclip, kein Gravity
     if (IsSpectator)
@@ -71,7 +86,20 @@ public sealed class Player : Entity
 
     // Survival / Creative on ground
     var v = Velocity;
-    v.Y += Gravity * (1f / 20f);
+    if (IsInWater)
+    {
+      v.Y += WaterGravity * (1f / 20f);
+      if (_pendingSwimUp)
+        v.Y += SwimAcceleration * (1f / 20f);
+      if (_pendingSwimDown)
+        v.Y += SinkAcceleration * (1f / 20f);
+
+      v.Y = Math.Clamp(v.Y, -MaxWaterVerticalSpeed, MaxWaterVerticalSpeed);
+    }
+    else
+    {
+      v.Y += Gravity * (1f / 20f);
+    }
     Velocity = v;
 
     bool wasOnGround = OnGround;
@@ -81,9 +109,9 @@ public sealed class Player : Entity
     if (IsSneaking && wasOnGround)
     {
       float stepDown = -0.6f;
-      bool xSafe = HasGroundAt(Position.X + dx, Position.Y, Position.Z, stepDown, getBlock);
-      bool zSafe = HasGroundAt(Position.X, Position.Y, Position.Z + dz, stepDown, getBlock);
-      bool bothSafe = HasGroundAt(Position.X + dx, Position.Y, Position.Z + dz, stepDown, getBlock);
+      bool xSafe = HasGroundAt(Position.X + dx, Position.Y, Position.Z, stepDown, getCollisionBlock);
+      bool zSafe = HasGroundAt(Position.X, Position.Y, Position.Z + dz, stepDown, getCollisionBlock);
+      bool bothSafe = HasGroundAt(Position.X + dx, Position.Y, Position.Z + dz, stepDown, getCollisionBlock);
 
       if (!bothSafe)
       {
@@ -92,7 +120,7 @@ public sealed class Player : Entity
       }
     }
 
-    Move(dx, Velocity.Y * (1f / 20f), dz, getBlock);
+    Move(dx, Velocity.Y * (1f / 20f), dz, getCollisionBlock);
 
     if (IsSneaking && wasOnGround && !OnGround)
     {
@@ -100,20 +128,29 @@ public sealed class Player : Entity
       float checkY = snappedPos.Y - 0.01f;
 
       var testX = new Vector3(snappedPos.X - dx, checkY, snappedPos.Z);
-      if (IsOnGround(testX, getBlock)) { Position = testX; OnGround = true; goto done; }
+      if (IsOnGround(testX, getCollisionBlock)) { Position = testX; OnGround = true; goto done; }
 
       var testZ = new Vector3(snappedPos.X, checkY, snappedPos.Z - dz);
-      if (IsOnGround(testZ, getBlock)) { Position = testZ; OnGround = true; goto done; }
+      if (IsOnGround(testZ, getCollisionBlock)) { Position = testZ; OnGround = true; goto done; }
 
       var testXZ = new Vector3(snappedPos.X - dx, checkY, snappedPos.Z - dz);
-      if (IsOnGround(testXZ, getBlock)) { Position = testXZ; OnGround = true; }
+      if (IsOnGround(testXZ, getCollisionBlock)) { Position = testXZ; OnGround = true; }
 
     done:;
     }
 
     v = Velocity;
-    v.X *= OnGround ? Drag : 0.91f;
-    v.Z *= OnGround ? Drag : 0.91f;
+    if (IsInWater)
+    {
+      v.X *= WaterDrag;
+      v.Y *= WaterDrag;
+      v.Z *= WaterDrag;
+    }
+    else
+    {
+      v.X *= OnGround ? Drag : 0.91f;
+      v.Z *= OnGround ? Drag : 0.91f;
+    }
     Velocity = v;
 
     // Landing cancelt Fly im Creative
@@ -124,6 +161,8 @@ public sealed class Player : Entity
   public void ProcessInput(KeyboardState keyboard, float yaw)
   {
     _pendingSneaking = keyboard.IsKeyDown(Keys.LeftShift) && !IsFlying && !IsSpectator;
+    _pendingSwimUp = keyboard.IsKeyDown(Keys.Space);
+    _pendingSwimDown = keyboard.IsKeyDown(Keys.LeftShift);
     IsSprinting = keyboard.IsKeyDown(Keys.LeftControl) && !IsSneaking;
 
     float rad = MathHelper.DegreesToRadians(yaw + 90f);
@@ -164,8 +203,9 @@ public sealed class Player : Entity
     }
     else
     {
-      vel.X += mx * speed * (OnGround ? 1f : 0.3f);
-      vel.Z += mz * speed * (OnGround ? 1f : 0.3f);
+      float control = IsInWater ? WaterMoveScale : OnGround ? 1f : 0.3f;
+      vel.X += mx * speed * control;
+      vel.Z += mz * speed * control;
     }
     Velocity = vel;
   }
@@ -173,6 +213,13 @@ public sealed class Player : Entity
   public void Jump()
   {
     if (IsFlying) return;        // Fliegt schon — Space macht nichts (Aufsteigen via ProcessInput)
+    if (IsInWater)
+    {
+      var waterVel = Velocity;
+      waterVel.Y = MathF.Max(waterVel.Y, 2.4f);
+      Velocity = waterVel;
+      return;
+    }
     if (!OnGround) return;
     var vel = Velocity;
     vel.Y = JumpVelocity;
@@ -211,4 +258,38 @@ public sealed class Player : Entity
         || getBlock((int)MathF.Floor(pos.X - hw), y, (int)MathF.Floor(pos.Z + hw)).HasValue
         || getBlock((int)MathF.Floor(pos.X + hw), y, (int)MathF.Floor(pos.Z + hw)).HasValue;
   }
+
+  private void UpdateWaterState(Func<int, int, int, Block?> getWorldBlock)
+  {
+    IsInWater = IntersectsWater(BoundingBox, getWorldBlock);
+    var eye = EyePosition;
+    EyesInWater = IsWaterAt(eye.X, eye.Y, eye.Z, getWorldBlock);
+  }
+
+  private static bool IntersectsWater(AABB box, Func<int, int, int, Block?> getWorldBlock)
+  {
+    int x0 = (int)MathF.Floor(box.MinX);
+    int x1 = (int)MathF.Floor(box.MaxX);
+    int y0 = (int)MathF.Floor(box.MinY);
+    int y1 = (int)MathF.Floor(box.MaxY);
+    int z0 = (int)MathF.Floor(box.MinZ);
+    int z1 = (int)MathF.Floor(box.MaxZ);
+
+    for (int x = x0; x <= x1; x++)
+      for (int y = y0; y <= y1; y++)
+        for (int z = z0; z <= z1; z++)
+        {
+          if (getWorldBlock(x, y, z) == Block.Water)
+            return true;
+        }
+
+    return false;
+  }
+
+  private static bool IsWaterAt(float x, float y, float z,
+      Func<int, int, int, Block?> getWorldBlock)
+    => getWorldBlock(
+        (int)MathF.Floor(x),
+        (int)MathF.Floor(y),
+        (int)MathF.Floor(z)) == Block.Water;
 }

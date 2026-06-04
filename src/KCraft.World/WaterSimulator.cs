@@ -35,6 +35,17 @@ public sealed class WaterSimulator
       _pendingUpdates.Enqueue((wx, wy, wz));
   }
 
+  public void ScheduleNeighbors(int wx, int wy, int wz)
+  {
+    ScheduleUpdate(wx, wy, wz);
+    ScheduleUpdate(wx, wy - 1, wz);
+    ScheduleUpdate(wx, wy + 1, wz);
+    ScheduleUpdate(wx - 1, wy, wz);
+    ScheduleUpdate(wx + 1, wy, wz);
+    ScheduleUpdate(wx, wy, wz - 1);
+    ScheduleUpdate(wx, wy, wz + 1);
+  }
+
   // Alle 5 Ticks aufrufen
   public void Tick()
   {
@@ -53,12 +64,31 @@ public sealed class WaterSimulator
       var (block, level) = current.Value;
       if (block != Block.Water) continue;
 
+      if (level != SourceLevel)
+      {
+        var desiredLevel = GetExpectedFlowLevel(wx, wy, wz);
+        if (desiredLevel == null)
+        {
+          _setWorldFluid(wx, wy, wz, Block.Air, 255);
+          ScheduleAround(nextRound, wx, wy, wz);
+          continue;
+        }
+
+        if (desiredLevel.Value != level)
+        {
+          _setWorldFluid(wx, wy, wz, Block.Water, desiredLevel.Value);
+          level = desiredLevel.Value;
+          ScheduleAround(nextRound, wx, wy, wz);
+        }
+      }
+
       // ── Prio 1: nach unten fließen ────────────────────────────
       var below = _getWorldFluid(wx, wy - 1, wz);
       if (below != null && below.Value.block == Block.Air)
       {
-        _setWorldFluid(wx, wy - 1, wz, Block.Water, SourceLevel);
-        nextRound.Add((wx, wy - 1, wz));
+        byte fallingLevel = level == SourceLevel ? (byte)1 : level;
+        _setWorldFluid(wx, wy - 1, wz, Block.Water, fallingLevel);
+        ScheduleAround(nextRound, wx, wy - 1, wz);
         continue; // runter hat Priorität
       }
 
@@ -80,13 +110,13 @@ public sealed class WaterSimulator
         if (nBlock == Block.Air)
         {
           _setWorldFluid(nx, wy, nz, Block.Water, nextLevel);
-          nextRound.Add((nx, wy, nz));
+          ScheduleAround(nextRound, nx, wy, nz);
         }
         else if (nBlock == Block.Water && nLevel > nextLevel)
         {
           // Stärkeres Wasser überschreibt schwächeres
           _setWorldFluid(nx, wy, nz, Block.Water, nextLevel);
-          nextRound.Add((nx, wy, nz));
+          ScheduleAround(nextRound, nx, wy, nz);
         }
       }
     }
@@ -95,5 +125,41 @@ public sealed class WaterSimulator
     // (vereinfacht — nur wenn kein direkter Source-Nachbar)
     foreach (var (wx, wy, wz) in nextRound)
       ScheduleUpdate(wx, wy, wz);
+  }
+
+  private byte? GetExpectedFlowLevel(int wx, int wy, int wz)
+  {
+    var above = _getWorldFluid(wx, wy + 1, wz);
+    if (above is { block: Block.Water })
+      return above.Value.level == SourceLevel ? (byte)1 : above.Value.level;
+
+    byte best = byte.MaxValue;
+    int[] dx = [-1, 1, 0, 0];
+    int[] dz = [0, 0, -1, 1];
+
+    for (int i = 0; i < 4; i++)
+    {
+      var neighbor = _getWorldFluid(wx + dx[i], wy, wz + dz[i]);
+      if (neighbor is not { block: Block.Water }) continue;
+
+      byte nLevel = neighbor.Value.level;
+      if (nLevel >= MaxLevel) continue;
+
+      byte candidate = (byte)(nLevel + 1);
+      if (candidate < best)
+        best = candidate;
+    }
+
+    return best == byte.MaxValue ? null : best;
+  }
+
+  private static void ScheduleAround(List<(int wx, int wy, int wz)> nextRound, int wx, int wy, int wz)
+  {
+    nextRound.Add((wx, wy, wz));
+    nextRound.Add((wx - 1, wy, wz));
+    nextRound.Add((wx + 1, wy, wz));
+    nextRound.Add((wx, wy, wz - 1));
+    nextRound.Add((wx, wy, wz + 1));
+    nextRound.Add((wx, wy - 1, wz));
   }
 }

@@ -18,6 +18,7 @@ public sealed class WorldTicker
   public float CurrentTps { get; private set; } = 20f;
   public Player? Player { get; set; }
   private Func<int, int, int, Block?>? _getBlock;
+  private Func<int, int, int, Block?>? _getWorldBlock;
   public float Accumulator => _accumulator;
   public Vector3 PlayerPrevPosition { get; private set; }
 
@@ -59,10 +60,13 @@ public sealed class WorldTicker
     // 4. Fluid Ticks → TODO
     // 5. Random Ticks → TODO
     // 6. Entity Tick
-    Player?.Tick(_getBlock!);
+    Player?.Tick(_getBlock!, _getWorldBlock ?? _getBlock!);
   }
   public void SetGetBlock(Func<int, int, int, Block?> getBlock)
       => _getBlock = getBlock;
+
+  public void SetWorldBlockQuery(Func<int, int, int, Block?> getBlock)
+      => _getWorldBlock = getBlock;
 
   
 }

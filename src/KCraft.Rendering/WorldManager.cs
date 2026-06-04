@@ -105,7 +105,7 @@ public sealed class WorldManager : IDisposable
     _loadedSet.Add((cx, cz));
 
     var mesh = new ChunkMesh();
-    mesh.Build(chunk, GetBlock, cx, cz);
+    mesh.Build(chunk, GetBlock, cx, cz, GetWorldFluid);
     ChunkMeshes.Add((mesh, chunk, new Vector3i(cx, 0, cz)));
 
     // Nur Nachbarn neu bauen die Wasser an der Grenze haben
@@ -149,7 +149,7 @@ public sealed class WorldManager : IDisposable
         var (mesh, _, pos) = ChunkMeshes[j];
         if (pos.X != nx || pos.Z != nz) continue;
         var newMesh = new ChunkMesh();
-        newMesh.Build(neighborChunk, GetBlock, nx, nz);
+        newMesh.Build(neighborChunk, GetBlock, nx, nz, GetWorldFluid);
         mesh.Dispose();
         ChunkMeshes[j] = (newMesh, neighborChunk, pos);
         break;
@@ -173,7 +173,7 @@ public sealed class WorldManager : IDisposable
         var (mesh, _, pos) = ChunkMeshes[j];
         if (pos.X != nx || pos.Z != nz) continue;
         var newMesh = new ChunkMesh();
-        newMesh.Build(neighborChunk, GetBlock, nx, nz);
+        newMesh.Build(neighborChunk, GetBlock, nx, nz, GetWorldFluid);
         mesh.Dispose();
         ChunkMeshes[j] = (newMesh, neighborChunk, pos);
         break;
@@ -194,6 +194,14 @@ public sealed class WorldManager : IDisposable
     return block == Block.Air ? null : block;
   }
 
+  public Block? GetSolidBlock(int wx, int wy, int wz)
+  {
+    var block = GetBlock(wx, wy, wz);
+    if (block == null) return null;
+
+    return BlockRegistry.Get(block.Value).IsSolid ? block : null;
+  }
+
   public bool BreakBlock(Vector3i worldPos)
   {
     int cx = (int)MathF.Floor(worldPos.X / (float)Chunk.Width);
@@ -206,10 +214,14 @@ public sealed class WorldManager : IDisposable
       int lx = worldPos.X - cx * Chunk.Width;
       int lz = worldPos.Z - cz * Chunk.Depth;
       if (!chunk.IsInside(lx, worldPos.Y, lz)) return false;
+      bool brokeWater = chunk.GetBlock(lx, worldPos.Y, lz) == Block.Water;
       chunk.SetBlock(lx, worldPos.Y, lz, Block.Air);
+      if (brokeWater)
+        chunk.SetFluidLevel(lx, worldPos.Y, lz, 255);
       _activeWater.Remove((worldPos.X, worldPos.Y, worldPos.Z));
+      ScheduleWaterAround(worldPos);
       var newMesh = new ChunkMesh();
-      newMesh.Build(chunk, GetBlock, cx, cz);
+      newMesh.Build(chunk, GetBlock, cx, cz, GetWorldFluid);
       mesh.Dispose();
       ChunkMeshes[i] = (newMesh, chunk, chunkPos);
       return true;
@@ -237,8 +249,9 @@ public sealed class WorldManager : IDisposable
         _activeWater.Add((worldPos.X, worldPos.Y, worldPos.Z));
         _waterSim.ScheduleUpdate(worldPos.X, worldPos.Y, worldPos.Z);
       }
+      ScheduleWaterAround(worldPos);
       var newMesh = new ChunkMesh();
-      newMesh.Build(chunk, GetBlock, cx, cz);
+      newMesh.Build(chunk, GetBlock, cx, cz, GetWorldFluid);
       mesh.Dispose();
       ChunkMeshes[i] = (newMesh, chunk, chunkPos);
       return true;
@@ -282,6 +295,16 @@ public sealed class WorldManager : IDisposable
     _dirtyChunks.Add((cx, cz));
   }
 
+  private void ScheduleWaterAround(Vector3i worldPos)
+  {
+    _waterSim.ScheduleNeighbors(worldPos.X, worldPos.Y, worldPos.Z);
+    MarkDirty(worldPos.X, worldPos.Y, worldPos.Z);
+    MarkDirty(worldPos.X - 1, worldPos.Y, worldPos.Z);
+    MarkDirty(worldPos.X + 1, worldPos.Y, worldPos.Z);
+    MarkDirty(worldPos.X, worldPos.Y, worldPos.Z - 1);
+    MarkDirty(worldPos.X, worldPos.Y, worldPos.Z + 1);
+  }
+
   // ── Water Tick ────────────────────────────────────────────────────────
   public void WaterTick()
   {
@@ -312,7 +335,7 @@ public sealed class WorldManager : IDisposable
         var (mesh, _, pos) = ChunkMeshes[i];
         if (pos.X != cx || pos.Z != cz) continue;
         var newMesh = new ChunkMesh();
-        newMesh.Build(chunk, GetBlock, cx, cz);
+        newMesh.Build(chunk, GetBlock, cx, cz, GetWorldFluid);
         mesh.Dispose();
         ChunkMeshes[i] = (newMesh, chunk, pos);
         rebuilt++;
