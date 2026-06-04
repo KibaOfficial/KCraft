@@ -11,6 +11,7 @@ using KCraft.World;
 using KCraft.Rendering.Ui;
 using KCraft.Rendering.Benchmark;
 using KCraft.Core;
+using KCraft.Blocks;
 
 namespace KCraft.Rendering;
 
@@ -276,7 +277,12 @@ public sealed class KCraftWindow : GameWindow
       {
         _lastHit = BlockRaycaster.Cast(_camera.Position, _camera.Front, 8f, _world.GetBlock);
         if (_lastHit.Hit)
-          _blockHighlight.Draw(_lastHit.BlockPos, view, projection);
+        {
+          // Kein Highlight für Fluide
+          var hitDef = BlockRegistry.Definitions.TryGetValue(_lastHit.Block, out var d) ? d : null;
+          if (hitDef == null || !hitDef.IsFluid)
+            _blockHighlight.Draw(_lastHit.BlockPos, view, projection);
+        }
 
         _chunkBorders.Draw(_camera, view, projection);
 
@@ -286,6 +292,14 @@ public sealed class KCraftWindow : GameWindow
 
       // 2D Overlays
       GL.Clear(ClearBufferMask.DepthBufferBit);
+
+      // Unterwasser-Effekt
+      if (_ticker.Player?.EyesInWater == true)
+      {
+        var waterColor = new Vector4(0x3F / 255f, 0x76 / 255f, 0xE4 / 255f, 0.35f);
+        // TextRenderer.DrawRect nutzen
+        _debug.DrawFullscreenRect(new Vector2(Size.X, Size.Y), waterColor);
+      }
 
       if (_ui.State == GameState.Playing || _ui.State == GameState.Paused)
       {

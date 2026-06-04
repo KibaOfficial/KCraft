@@ -202,6 +202,11 @@ public sealed class DebugOverlay : IDisposable
     };
   }
 
+  public void DrawFullscreenRect(Vector2 screen, Vector4 color)
+  {
+    _text.DrawRect(0, 0, screen.X, screen.Y, screen, color);
+  }
+
   private static string Shorten(string text, int maxLength)
     => text.Length <= maxLength ? text : text[..(maxLength - 3)] + "...";
 
