@@ -43,6 +43,7 @@ public sealed class KCraftWindow : GameWindow
   private HotbarRenderer _hotbar = null!;
   private HitboxRenderer _hitbox = null!;
   private BenchmarkSession? _benchmark;
+  private StarRenderer _stars = null!;
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
   private Vector2 _mousePosition;
@@ -135,6 +136,7 @@ public sealed class KCraftWindow : GameWindow
     _world.Dispose();
     _textureManager.Dispose();
     _sky.Dispose();
+    _stars.Dispose();
     _debug.Dispose();
     _chunkBorders.Dispose();
     _crosshair.Dispose();
@@ -286,6 +288,10 @@ public sealed class KCraftWindow : GameWindow
 
       // Sky
       _sky.Draw(_ticker.Time, view, projection, _camera, aspect);
+
+      // Stars
+      float nightFactor = 1f - Math.Clamp(_ticker.Time.SkyLight * 2f, 0f, 1f);
+      _stars.Draw(view, projection, nightFactor, _ticker.Time.TotalTicks);
 
       // 3D World
       DrawChunks(view, projection);
@@ -674,6 +680,7 @@ public sealed class KCraftWindow : GameWindow
   {
     const string font = "assets/dev/font_ascii.png";
     _sky = new SkyRenderer();
+    _stars = new StarRenderer();
     _debug = new DebugOverlay(font);
     _chunkBorders = new ChunkBorderRenderer();
     _crosshair = new CrosshairRenderer(font);
