@@ -186,7 +186,9 @@ public sealed class KCraftWindow : GameWindow
 
       // DCL — Chunks um Player aktualisieren
       if (_ticker.Player != null)
-        _world.UpdateChunks(_ticker.Player.Position);
+        _world.UpdateChunks(_ticker.Player.Position,
+            loadRadius: GameSettings.RenderDistance,
+            unloadRadius: GameSettings.RenderDistance + 3);
 
       if (!_freeCam && _ticker.Player != null)
       {
@@ -270,8 +272,7 @@ public sealed class KCraftWindow : GameWindow
     {
       float aspect = Size.X / (float)Size.Y;
       var view = _camera.GetViewMatrix();
-      var projection = Matrix4.CreatePerspectiveFieldOfView(
-          MathHelper.DegreesToRadians(60f), aspect, 0.1f, 500f);
+      var projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(GameSettings.Fov), aspect, 0.1f, 500f);
 
       // Sky
       _sky.Draw(_ticker.Time, view, projection, _camera, aspect);
@@ -518,6 +519,12 @@ public sealed class KCraftWindow : GameWindow
     }
   }
 
+  protected override void OnMouseUp(MouseButtonEventArgs e)
+  {
+    base.OnMouseUp(e);
+    _ui.Options.HandleMouseUp(_mousePosition.X, _mousePosition.Y);
+  }
+
   protected override void OnMouseMove(MouseMoveEventArgs e)
   {
     base.OnMouseMove(e);
@@ -723,7 +730,9 @@ public sealed class KCraftWindow : GameWindow
     _camera.SetRotation(data.CameraYaw, data.CameraPitch);
 
     for (int i = 0; i < 300; i++)
-      _world.UpdateChunks(_ticker.Player.Position, loadRadius: 10, unloadRadius: 13);
+      _world.UpdateChunks(_ticker.Player.Position,
+        loadRadius: GameSettings.RenderDistance,
+        unloadRadius: GameSettings.RenderDistance + 3);
 
     _currentGameMode = (GameMode)data.GameMode;
     ApplyGameMode(_currentGameMode);
@@ -784,8 +793,8 @@ public sealed class KCraftWindow : GameWindow
     int pcz = (int)MathF.Floor(_ticker.Player!.Position.Z / 16f);
     _ui.Loading.Reset();
     _ui.Loading.SetCenter(pcx, pcz);
-    int r = WorldManager.RenderRadius;
-    _ui.Loading.TargetChunks = (r * 2 + 1) * (r * 2 + 1); // 289 für R8
+    int r = GameSettings.RenderDistance;
+    _ui.Loading.TargetChunks = (r * 2 + 1) * (r * 2 + 1);
     _ui.SetState(GameState.Loading);
     CursorState = CursorState.Normal;
   }

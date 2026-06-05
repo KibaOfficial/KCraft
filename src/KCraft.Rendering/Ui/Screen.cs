@@ -47,4 +47,5 @@ public abstract class Screen
   }
 
   public virtual void HandleMouseMove(float mx, float my) { }
+  public virtual void HandleMouseUp(float mx, float my) { }
 }
