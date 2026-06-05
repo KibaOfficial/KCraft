@@ -358,4 +358,16 @@ public sealed class WorldManager : IDisposable
     _activeWater.Clear();
     ChunkMeshes.Clear();
   }
+
+  public byte GetMetadata(int wx, int wy, int wz)
+  {
+    int cx = (int)MathF.Floor(wx / (float)Chunk.Width);
+    int cz = (int)MathF.Floor(wz / (float)Chunk.Depth);
+    int lx = wx - cx * Chunk.Width;
+    int lz = wz - cz * Chunk.Depth;
+
+    if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) return 0;
+    if (!chunk.IsInside(lx, wy, lz)) return 0;
+    return chunk.GetMetadata(lx, wy, lz);
+  }
 }

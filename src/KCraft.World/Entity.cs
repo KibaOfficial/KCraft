@@ -25,12 +25,14 @@ public abstract class Entity
   }
 
   // ── Physik (MC moveEntity Prinzip) ────────────────────────────────────
-  public void Move(float dx, float dy, float dz, Func<int, int, int, Block?> getBlock)
+  public void Move(float dx, float dy, float dz,
+    Func<int, int, int, Block?> getBlock,
+    Func<int, int, int, byte>? getMetadata = null)
   {
     var aabb = BoundingBox;
 
     // Alle Block-AABBs im Weg sammeln
-    var blocks = GetBlockAABBs(aabb, dx, dy, dz, getBlock);
+    var blocks = GetBlockAABBs(aabb, dx, dy, dz, getBlock, getMetadata);
 
     // Y zuerst (Gravity wichtigste Achse)
     float originalDy = dy;
@@ -59,7 +61,7 @@ public abstract class Entity
 
       // Hochheben
       var steppedAabb = preStepAabb.Offset(0, stepHeight, 0);
-      var stepBlocks = GetBlockAABBs(steppedAabb, originalDx, 0, originalDz, getBlock);
+      var stepBlocks = GetBlockAABBs(steppedAabb, originalDx, 0, originalDz, getBlock, getMetadata);
 
       float stepDx = originalDx;
       float stepDz = originalDz;
@@ -75,7 +77,7 @@ public abstract class Entity
       {
         // Nach unten fallen bis Boden
         float stepDy = -stepHeight;
-        var downBlocks = GetBlockAABBs(steppedAabb, 0, stepDy, 0, getBlock);
+        var downBlocks = GetBlockAABBs(steppedAabb, 0, stepDy, 0, getBlock, getMetadata);
         foreach (var b in downBlocks) stepDy = steppedAabb.ClipMoveY(b, stepDy);
         steppedAabb = steppedAabb.Offset(0, stepDy, 0);
 
@@ -109,28 +111,59 @@ public abstract class Entity
   }
 
   private static List<AABB> GetBlockAABBs(AABB aabb, float dx, float dy, float dz,
-    Func<int, int, int, Block?> getBlock)
+    Func<int, int, int, Block?> getBlock,
+    Func<int, int, int, byte>? getMetadata = null)
   {
-    var expanded = aabb.Expand(dx, dy, dz);
-    var result = new List<AABB>();
+    {
+      var expanded = aabb.Expand(dx, dy, dz);
+      var result = new List<AABB>();
 
-    int x0 = (int)MathF.Floor(expanded.MinX) - 1;
-    int x1 = (int)MathF.Ceiling(expanded.MaxX) + 1;
-    int y0 = (int)MathF.Floor(expanded.MinY) - 1;
-    int y1 = (int)MathF.Ceiling(expanded.MaxY) + 1;
-    int z0 = (int)MathF.Floor(expanded.MinZ) - 1;
-    int z1 = (int)MathF.Ceiling(expanded.MaxZ) + 1;
+      int x0 = (int)MathF.Floor(expanded.MinX) - 1;
+      int x1 = (int)MathF.Ceiling(expanded.MaxX) + 1;
+      int y0 = (int)MathF.Floor(expanded.MinY) - 1;
+      int y1 = (int)MathF.Ceiling(expanded.MaxY) + 1;
+      int z0 = (int)MathF.Floor(expanded.MinZ) - 1;
+      int z1 = (int)MathF.Ceiling(expanded.MaxZ) + 1;
 
-    for (int x = x0; x <= x1; x++)
-      for (int y = y0; y <= y1; y++)
-        for (int z = z0; z <= z1; z++)
-        {
-          var block = getBlock(x, y, z);
-          if (block.HasValue)
-            result.Add(new AABB(x, y, z, x + 1, y + 1, z + 1));
-        }
+      for (int x = x0; x <= x1; x++)
+        for (int y = y0; y <= y1; y++)
+          for (int z = z0; z <= z1; z++)
+          {
+            var block = getBlock(x, y, z);
+            if (!block.HasValue) continue;
 
-    return result;
+            var def = BlockRegistry.Definitions.TryGetValue(block.Value, out var d) ? d : null;
+
+            if (def?.IsStairs == true && getMetadata != null)
+            {
+              var facing = (BlockFacing)getMetadata(x, y, z);
+              // Untere Hälfte — immer
+              result.Add(new AABB(x, y, z, x + 1, y + 0.5f, z + 1));
+              // Obere Hälfte — je nach Facing
+              switch (facing)
+              {
+                case BlockFacing.North:
+                  result.Add(new AABB(x, y + 0.5f, z, x + 1, y + 1f, z + 0.5f));
+                  break;
+                case BlockFacing.South:
+                  result.Add(new AABB(x, y + 0.5f, z + 0.5f, x + 1, y + 1f, z + 1));
+                  break;
+                case BlockFacing.West:
+                  result.Add(new AABB(x, y + 0.5f, z, x + 0.5f, y + 1f, z + 1));
+                  break;
+                case BlockFacing.East:
+                  result.Add(new AABB(x + 0.5f, y + 0.5f, z, x + 1, y + 1f, z + 1));
+                  break;
+              }
+            }
+            else
+            {
+              result.Add(new AABB(x, y, z, x + 1, y + 1, z + 1));
+            }
+          }
+
+      return result;
+    }
   }
 
   public abstract void Tick(Func<int, int, int, Block?> getBlock);

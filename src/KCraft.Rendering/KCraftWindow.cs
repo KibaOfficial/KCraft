@@ -686,6 +686,7 @@ public sealed class KCraftWindow : GameWindow
   {
     _ticker.SetGetBlock(_world.GetSolidBlock);
     _ticker.SetWorldBlockQuery(_world.GetBlock);
+    _ticker.SetGetMetadata(_world.GetMetadata);
   }
 
   private void InitUi()

@@ -60,7 +60,7 @@ public sealed class WorldTicker
     // 4. Fluid Ticks → TODO
     // 5. Random Ticks → TODO
     // 6. Entity Tick
-    Player?.Tick(_getBlock!, _getWorldBlock ?? _getBlock!);
+    Player?.Tick(_getBlock!, _getWorldBlock ?? _getBlock!, _getMetadata);
   }
   public void SetGetBlock(Func<int, int, int, Block?> getBlock)
       => _getBlock = getBlock;
@@ -68,5 +68,8 @@ public sealed class WorldTicker
   public void SetWorldBlockQuery(Func<int, int, int, Block?> getBlock)
       => _getWorldBlock = getBlock;
 
-  
+  private Func<int, int, int, byte>? _getMetadata;
+
+  public void SetGetMetadata(Func<int, int, int, byte> getMetadata)
+      => _getMetadata = getMetadata;
 }

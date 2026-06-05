@@ -52,10 +52,11 @@ public sealed class Player : Entity
   public Player(Vector3 spawnPos) : base(spawnPos) { }
 
   public override void Tick(Func<int, int, int, Block?> getBlock)
-    => Tick(getBlock, getBlock);
+    => Tick(getBlock, getBlock, null);
 
   public void Tick(Func<int, int, int, Block?> getCollisionBlock,
-      Func<int, int, int, Block?> getWorldBlock)
+    Func<int, int, int, Block?> getWorldBlock,
+    Func<int, int, int, byte>? getMetadata = null)
   {
     IsSneaking = _pendingSneaking;
     UpdateWaterState(getWorldBlock);
@@ -120,7 +121,7 @@ public sealed class Player : Entity
       }
     }
 
-    Move(dx, Velocity.Y * (1f / 20f), dz, getCollisionBlock);
+    Move(dx, Velocity.Y * (1f / 20f), dz, getCollisionBlock, getMetadata);
 
     if (IsSneaking && wasOnGround && !OnGround)
     {
