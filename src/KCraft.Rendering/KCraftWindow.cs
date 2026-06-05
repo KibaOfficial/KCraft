@@ -58,6 +58,7 @@ public sealed class KCraftWindow : GameWindow
   private readonly List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> _visibleList = [];
   private readonly PlayerInventory _playerInventory = new();
   private readonly DiscordRpc _discord = new();
+  private CloudRenderer _clouds = null!;
   // ── Shaders ───────────────────────────────────────────────────────────
   private const string VertexShaderSource = """
     #version 410 core
@@ -137,6 +138,7 @@ public sealed class KCraftWindow : GameWindow
     _textureManager.Dispose();
     _sky.Dispose();
     _stars.Dispose();
+    _clouds.Dispose();
     _debug.Dispose();
     _chunkBorders.Dispose();
     _crosshair.Dispose();
@@ -157,6 +159,7 @@ public sealed class KCraftWindow : GameWindow
     if (_ui.State == GameState.Playing)
     {
       _ui.Update((float)args.Time);
+      _clouds.Update((float)args.Time);
       bool jumpNow = KeyboardState.IsKeyDown(Keys.Space);
       if (jumpNow && !_jumpPressedLastFrame)
       {
@@ -292,6 +295,8 @@ public sealed class KCraftWindow : GameWindow
       // Stars
       float nightFactor = 1f - Math.Clamp(_ticker.Time.SkyLight * 2f, 0f, 1f);
       _stars.Draw(view, projection, nightFactor, _ticker.Time.TotalTicks);
+
+      _clouds.Draw(view, projection, _camera.Position, _ticker.Time.SkyLight);
 
       // 3D World
       DrawChunks(view, projection);
@@ -681,6 +686,7 @@ public sealed class KCraftWindow : GameWindow
     const string font = "assets/dev/font_ascii.png";
     _sky = new SkyRenderer();
     _stars = new StarRenderer();
+    _clouds = new CloudRenderer();
     _debug = new DebugOverlay(font);
     _chunkBorders = new ChunkBorderRenderer();
     _crosshair = new CrosshairRenderer(font);
