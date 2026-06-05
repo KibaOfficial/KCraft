@@ -42,6 +42,11 @@ public sealed class GameModeSwitcher : IDisposable
     Selected = Modes[next].mode;
   }
 
+  public void SetSelected(GameMode mode)
+  {
+    Selected = mode;
+  }
+
   public void Draw(Vector2 screen)
   {
     if (!Visible) return;

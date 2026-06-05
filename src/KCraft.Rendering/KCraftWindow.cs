@@ -56,6 +56,7 @@ public sealed class KCraftWindow : GameWindow
   private int _visibleChunks;
   private readonly List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> _visibleList = [];
   private readonly PlayerInventory _playerInventory = new();
+  private readonly DiscordRpc _discord = new();
   // ── Shaders ───────────────────────────────────────────────────────────
   private const string VertexShaderSource = """
     #version 410 core
@@ -117,8 +118,10 @@ public sealed class KCraftWindow : GameWindow
 
     InitUi();
     InitRenderers();
+    _discord.Connect();
 
     _ui.SetState(GameState.MainMenu);
+    UpdateDiscordPresence();
     CursorState = CursorState.Normal;
   }
 
@@ -136,6 +139,7 @@ public sealed class KCraftWindow : GameWindow
     _hotbar.Dispose();
     _hitbox.Dispose();
     _gameModeSwitcher.Dispose();
+    _discord.Dispose();
     GL.DeleteProgram(_shader);
   }
 
@@ -214,6 +218,7 @@ public sealed class KCraftWindow : GameWindow
         _ui.BenchmarkResult.Data = _benchmark.Result;
         _ui.SetState(GameState.BenchmarkResult);
         CursorState = CursorState.Normal;
+        UpdateDiscordPresence();
       }
     }
     if (_ui.State == GameState.Loading)
@@ -253,6 +258,7 @@ public sealed class KCraftWindow : GameWindow
         _ui.SetState(GameState.Playing);
         CursorState = CursorState.Grabbed;
         _firstMouse = true;
+        UpdateDiscordPresence();
       }
     }
   }
@@ -405,8 +411,14 @@ public sealed class KCraftWindow : GameWindow
           _ui.SetState(GameState.Playing);
           CursorState = CursorState.Grabbed;
           _firstMouse = true;
+          UpdateDiscordPresence();
         }
-        else if (stateBeforeKey == GameState.Playing) PauseGame();
+        else if (stateBeforeKey == GameState.Playing)
+        {
+          PauseGame();
+          UpdateDiscordPresence();
+        }
+
         else if (stateBeforeKey == GameState.Paused) ResumeGame();
         break;
 
@@ -417,6 +429,8 @@ public sealed class KCraftWindow : GameWindow
       case Keys.F4 when stateBeforeKey == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
         {
+          if (!_gameModeSwitcher.Visible)
+            _gameModeSwitcher.SetSelected(_currentGameMode);
           _gameModeSwitcher.Visible = true;
           _gameModeSwitcher.CycleNext();
         }
@@ -453,11 +467,13 @@ public sealed class KCraftWindow : GameWindow
           : GameState.Inventory);
         CursorState = CursorState.Normal;
         _firstMouse = true;
+        UpdateDiscordPresence();
         break;
       case Keys.E when stateBeforeKey == GameState.CreativeInventory:
         _ui.SetState(GameState.Playing);
         CursorState = CursorState.Grabbed;
         _firstMouse = true;
+        UpdateDiscordPresence();
         break;
     }
   }
@@ -470,6 +486,7 @@ public sealed class KCraftWindow : GameWindow
       _currentGameMode = _gameModeSwitcher.Selected;
       _gameModeSwitcher.Visible = false;
       ApplyGameMode(_currentGameMode);
+      UpdateDiscordPresence();
     }
   }
 
@@ -576,6 +593,7 @@ public sealed class KCraftWindow : GameWindow
   {
     _ui.SetState(GameState.Paused);
     CursorState = CursorState.Normal;
+    UpdateDiscordPresence();
   }
 
   private void ResumeGame()
@@ -583,6 +601,7 @@ public sealed class KCraftWindow : GameWindow
     _ui.SetState(GameState.Playing);
     CursorState = CursorState.Grabbed;
     _firstMouse = true;
+    UpdateDiscordPresence();
   }
 
   private void SaveAndQuit()
@@ -590,6 +609,7 @@ public sealed class KCraftWindow : GameWindow
     SaveWorld();
     _ui.SetState(GameState.MainMenu);
     CursorState = CursorState.Normal;
+    UpdateDiscordPresence();
   }
 
   private void SaveWorld()
@@ -797,6 +817,7 @@ public sealed class KCraftWindow : GameWindow
     _ui.Loading.TargetChunks = (r * 2 + 1) * (r * 2 + 1);
     _ui.SetState(GameState.Loading);
     CursorState = CursorState.Normal;
+    UpdateDiscordPresence();
   }
   private void CreateAndStartWorld(string name, int? seed)
   {
@@ -814,6 +835,7 @@ public sealed class KCraftWindow : GameWindow
     _ui.SetState(GameState.Playing);
     CursorState = CursorState.Grabbed;
     _firstMouse = true;
+    UpdateDiscordPresence();
   }
 
   private void StartBenchmark()
@@ -832,5 +854,32 @@ public sealed class KCraftWindow : GameWindow
 
     _ui.SetState(GameState.Benchmark);
     CursorState = CursorState.Grabbed;
+    UpdateDiscordPresence();
+  }
+
+  private void UpdateDiscordPresence()
+  {
+    string details = "KCraft";
+    string state = _ui.State switch
+    {
+      GameState.MainMenu => "In the Main Menu",
+      GameState.Playing => $"{_currentGameMode} | {_currentWorldName}",
+      GameState.Paused => "Game Paused",
+      GameState.Inventory => $"In Inventory | {_currentWorldName}",
+      GameState.CreativeInventory => $"Creative Inventory | {_currentWorldName}",
+      GameState.Options => "Changing Settings",
+      GameState.Loading => $"Loading: {_currentWorldName}",
+      GameState.Benchmark => "Running Benchmark",
+      GameState.SelectWorld => "Selecting World",
+      GameState.NewWorld => "Creating World",
+      GameState.BenchmarkResult => "Viewing Benchmark Results",
+      _ => "In the Menu"
+    };
+
+    if (_ui.State == GameState.Playing)
+      details = $"{_currentGameMode} Mode";
+
+    Console.WriteLine($"Discord Presence Update: {state}, {details}");
+    _discord.SetActivity(state, details);
   }
 }
