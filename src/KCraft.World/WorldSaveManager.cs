@@ -40,21 +40,26 @@ public static class WorldSaveManager
     {
       var path = Path.Combine(chunksPath, $"{cx}_{cz}.kchunk");
       File.WriteAllBytes(path, chunk.GetRawBlocks().ToArray());
+
+      // Metadata speichern
+      var metaPath = Path.Combine(chunksPath, $"{cx}_{cz}.kmeta");
+      File.WriteAllBytes(metaPath, chunk.GetRawMetadata().ToArray());
     }
   }
 
-  public static (WorldSaveData? data, Dictionary<(int cx, int cz), byte[]> chunks) Load(string worldName)
+  public static (WorldSaveData? data, Dictionary<(int cx, int cz), byte[]> chunks, Dictionary<(int cx, int cz), byte[]> metadata) Load(string worldName)
   {
     var worldPath = GetWorldPath(worldName);
     var jsonPath = Path.Combine(worldPath, "world.json");
 
     if (!File.Exists(jsonPath))
-      return (null, []);
+      return (null, [], []);  // ← drei Werte!
 
     var json = File.ReadAllText(jsonPath);
     var data = JsonSerializer.Deserialize<WorldSaveData>(json);
 
     var chunks = new Dictionary<(int, int), byte[]>();
+    var metadata = new Dictionary<(int, int), byte[]>();
     var chunksPath = Path.Combine(worldPath, "chunks");
 
     if (Directory.Exists(chunksPath))
@@ -67,10 +72,15 @@ public static class WorldSaveManager
         if (!int.TryParse(parts[0], out int cx)) continue;
         if (!int.TryParse(parts[1], out int cz)) continue;
         chunks[(cx, cz)] = File.ReadAllBytes(file);
+
+        // Metadata laden wenn vorhanden
+        var metaFile = Path.ChangeExtension(file, ".kmeta");
+        if (File.Exists(metaFile))
+          metadata[(cx, cz)] = File.ReadAllBytes(metaFile);
       }
     }
 
-    return (data, chunks);
+    return (data, chunks, metadata);
   }
 
   public static void Delete(string worldName)

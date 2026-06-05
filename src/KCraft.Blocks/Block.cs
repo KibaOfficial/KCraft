@@ -3,6 +3,7 @@
 
 namespace KCraft.Blocks;
 
+// Block.cs
 public enum Block : byte
 {
     Air = 0,
@@ -17,4 +18,6 @@ public enum Block : byte
     Glass = 9,
     Cobblestone = 10,
     Gravel = 11,
+    OakStairs = 12,
+    StoneStairs = 13,
 }

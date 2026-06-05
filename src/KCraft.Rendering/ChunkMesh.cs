@@ -46,6 +46,15 @@ public sealed class ChunkMesh : IDisposable
           var def = BlockRegistry.Definitions.TryGetValue(block, out var d)
               ? d : new BlockDefinition();
 
+          // Stairs — eigene Geometrie, kein Face-Loop
+          if (def.IsStairs)
+          {
+            var facing = (BlockFacing)chunk.GetMetadata(x, y, z);
+            AddStairFaces(_facesByTexture, x, y, z, facing,
+                def.TextureTop, def.TextureSide, def.TextureBottom);
+            continue; // ← überspringt den foreach
+          }
+
           foreach (FaceDirection face in Enum.GetValues<FaceDirection>())
           {
             if (def.IsFluid)
@@ -504,5 +513,145 @@ public sealed class ChunkMesh : IDisposable
     int wx = chunkX * Chunk.Width + x;
     int wz = chunkZ * Chunk.Depth + z;
     return getWorldBlock(wx, y, wz) == sameBlock;
+  }
+
+  private static void AddStairFaces(
+  Dictionary<string, (List<float> verts, List<uint> indices, uint offset)> facesByTexture,
+  int x, int y, int z, BlockFacing facing, string texTop, string texSide, string texBottom)
+  {
+    // Bottom half slab: full 1x0.5x1
+    AddBox(facesByTexture, x, y, z,
+      0f, 0f, 0f,
+      1f, 0.5f, 1f,
+      texTop, texSide, texBottom, facing);
+
+    // Upper back half depending on facing
+    switch (facing)
+    {
+      case BlockFacing.North:
+        AddBox(facesByTexture, x, y, z,
+          0f, 0.5f, 0f,
+          1f, 1f, 0.5f,
+          texTop, texSide, texBottom, facing);
+        break;
+
+      case BlockFacing.South:
+        AddBox(facesByTexture, x, y, z,
+          0f, 0.5f, 0.5f,
+          1f, 1f, 1f,
+          texTop, texSide, texBottom, facing);
+        break;
+
+      case BlockFacing.West:
+        AddBox(facesByTexture, x, y, z,
+          0f, 0.5f, 0f,
+          0.5f, 1f, 1f,
+          texTop, texSide, texBottom, facing);
+        break;
+
+      case BlockFacing.East:
+        AddBox(facesByTexture, x, y, z,
+          0.5f, 0.5f, 0f,
+          1f, 1f, 1f,
+          texTop, texSide, texBottom, facing);
+        break;
+    }
+  }
+
+  private static void AddBox(
+  Dictionary<string, (List<float> verts, List<uint> indices, uint offset)> facesByTexture,
+  int bx, int by, int bz,
+  float x0, float y0, float z0,
+  float x1, float y1, float z1,
+  string texTop, string texSide, string texBottom,
+  BlockFacing stairFacing)
+  {
+    float ax0 = bx + x0, ay0 = by + y0, az0 = bz + z0;
+    float ax1 = bx + x1, ay1 = by + y1, az1 = bz + z1;
+
+    // Down: X/Z
+    AddBoxFace(facesByTexture, texBottom, FaceDirection.Down,
+      (ax0, ay0, az1), (ax1, ay0, az1), (ax1, ay0, az0), (ax0, ay0, az0), stairFacing);
+
+    // Up: X/Z
+    AddBoxFace(facesByTexture, texTop, FaceDirection.Up,
+      (ax0, ay1, az0), (ax1, ay1, az0), (ax1, ay1, az1), (ax0, ay1, az1), stairFacing);
+
+    // North/South: X/Y
+    AddBoxFace(facesByTexture, texSide, FaceDirection.North,
+      (ax0, ay0, az0), (ax1, ay0, az0), (ax1, ay1, az0), (ax0, ay1, az0), stairFacing);
+
+    AddBoxFace(facesByTexture, texSide, FaceDirection.South,
+      (ax1, ay0, az1), (ax0, ay0, az1), (ax0, ay1, az1), (ax1, ay1, az1), stairFacing);
+
+    // West/East: Z/Y
+    AddBoxFace(facesByTexture, texSide, FaceDirection.West,
+      (ax0, ay0, az1), (ax0, ay0, az0), (ax0, ay1, az0), (ax0, ay1, az1), stairFacing);
+
+    AddBoxFace(facesByTexture, texSide, FaceDirection.East,
+      (ax1, ay0, az0), (ax1, ay0, az1), (ax1, ay1, az1), (ax1, ay1, az0), stairFacing);
+  }
+
+  private static void AddBoxFace(
+  Dictionary<string, (List<float> verts, List<uint> indices, uint offset)> facesByTexture,
+  string texName,
+  FaceDirection face,
+  (float x, float y, float z) v0,
+  (float x, float y, float z) v1,
+  (float x, float y, float z) v2,
+  (float x, float y, float z) v3,
+  BlockFacing stairFacing)
+  {
+    if (!facesByTexture.TryGetValue(texName, out var group))
+    {
+      group = (new List<float>(), new List<uint>(), 0);
+      facesByTexture[texName] = group;
+    }
+
+    var verts = group.verts;
+    var indices = group.indices;
+    var offset = group.offset;
+
+    var uv0 = GetBoxUv(face, v0, stairFacing);
+    var uv1 = GetBoxUv(face, v1, stairFacing);
+    var uv2 = GetBoxUv(face, v2, stairFacing);
+    var uv3 = GetBoxUv(face, v3, stairFacing);
+
+    verts.AddRange([v0.x, v0.y, v0.z, uv0.u, uv0.v]);
+    verts.AddRange([v1.x, v1.y, v1.z, uv1.u, uv1.v]);
+    verts.AddRange([v2.x, v2.y, v2.z, uv2.u, uv2.v]);
+    verts.AddRange([v3.x, v3.y, v3.z, uv3.u, uv3.v]);
+
+    indices.AddRange([offset, offset + 2, offset + 1, offset, offset + 3, offset + 2]);
+    offset += 4;
+
+    facesByTexture[texName] = (verts, indices, offset);
+  }
+
+  private static (float u, float v) GetBoxUv(
+  FaceDirection face,
+  (float x, float y, float z) p,
+  BlockFacing stairFacing)
+  {
+    if (face is FaceDirection.Up or FaceDirection.Down)
+    {
+      return stairFacing switch
+      {
+        BlockFacing.North => (p.x, p.z),
+        BlockFacing.West => (p.z, p.x),
+
+        BlockFacing.South => (1f - p.x, 1f - p.z),
+        BlockFacing.East => (1f - p.z, 1f - p.x),
+
+        _ => (p.x, p.z)
+      };
+    }
+
+    return face switch
+    {
+      FaceDirection.North or FaceDirection.South => (p.x, p.y),
+      FaceDirection.East or FaceDirection.West => (p.z, p.y),
+      _ => (p.x, p.y),
+    };
   }
 }

@@ -71,6 +71,20 @@ public static class BlockRegistry
       TextureSide = "gravel",
       TextureBottom = "gravel",
     },
+    [Block.OakStairs] = new()
+    {
+      TextureTop = "oak_planks",
+      TextureSide = "oak_planks",
+      TextureBottom = "oak_planks",
+      IsStairs = true,
+    },
+    [Block.StoneStairs] = new()
+    {
+      TextureTop = "stone",
+      TextureSide = "stone",
+      TextureBottom = "stone",
+      IsStairs = true,
+    },
   };
   public static BlockDefinition Get(Block block) => Definitions[block];
 }

@@ -229,7 +229,7 @@ public sealed class WorldManager : IDisposable
     return false;
   }
 
-  public bool PlaceBlock(Vector3i worldPos, Block block)
+  public bool PlaceBlock(Vector3i worldPos, Block block, byte metadata = 0)
   {
     int cx = (int)MathF.Floor(worldPos.X / (float)Chunk.Width);
     int cz = (int)MathF.Floor(worldPos.Z / (float)Chunk.Depth);
@@ -243,6 +243,7 @@ public sealed class WorldManager : IDisposable
       if (!chunk.IsInside(lx, worldPos.Y, lz)) return false;
       if (chunk.GetBlock(lx, worldPos.Y, lz) != Block.Air) return false;
       chunk.SetBlock(lx, worldPos.Y, lz, block);
+      chunk.SetMetadata(lx, worldPos.Y, lz, metadata);
       if (block == Block.Water)
       {
         chunk.SetFluidLevel(lx, worldPos.Y, lz, 0);

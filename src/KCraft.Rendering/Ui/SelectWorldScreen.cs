@@ -83,7 +83,7 @@ public sealed class SelectWorldScreen : Screen
     _allWorlds.Clear();
     foreach (var name in WorldSaveManager.GetWorldNames())
     {
-      var (data, _) = WorldSaveManager.Load(name);
+      var (data, _, _) = WorldSaveManager.Load(name);
       if (data != null)
         _allWorlds.Add(new WorldEntry(name, data));
     }

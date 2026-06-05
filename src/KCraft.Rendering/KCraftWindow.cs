@@ -30,6 +30,7 @@ public sealed class KCraftWindow : GameWindow
   private string _pendingWorldName = "";
   private string _currentWorldName = "default";
   private Dictionary<(int cx, int cz), byte[]>? _pendingSavedChunks;
+  private Dictionary<(int cx, int cz), byte[]>? _pendingSavedMetadata;
   // ── Assets ────────────────────────────────────────────────────────────
   private TextureManager _textureManager = null!;
   // ── Renderers ─────────────────────────────────────────────────────────
@@ -233,6 +234,8 @@ public sealed class KCraftWindow : GameWindow
               var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
               if (chunkPos.X != cx || chunkPos.Z != cz) continue;
               chunk.LoadRawBlocks(rawData);
+              if (_pendingSavedMetadata != null && _pendingSavedMetadata.TryGetValue((cx, cz), out var metaData))
+                chunk.LoadRawMetadata(metaData);
               var newMesh = new ChunkMesh();
               newMesh.Build(chunk, _world.GetBlock, cx, cz, _world.GetWorldFluid);
               mesh.Dispose();
@@ -241,6 +244,7 @@ public sealed class KCraftWindow : GameWindow
             }
           }
           _pendingSavedChunks = null;
+          _pendingSavedMetadata = null;
         }
 
         _ui.SetState(GameState.Playing);
@@ -456,7 +460,10 @@ public sealed class KCraftWindow : GameWindow
                                   placePos.X + 1, placePos.Y + 1, placePos.Z + 1);
         if (playerAabb == null || !playerAabb.Value.Intersects(blockAabb))
           if (_hotbar.SelectedBlock != Blocks.Block.Air)
-            _world.PlaceBlock(placePos, _hotbar.SelectedBlock);
+          {
+            var facing = BlockFacingHelper.FromYaw(_camera.Yaw);
+            _world.PlaceBlock(placePos, _hotbar.SelectedBlock, (byte)facing);
+          }
       }
 
       if (e.Button == MouseButton.Middle && _lastHit.Hit)
@@ -662,7 +669,7 @@ public sealed class KCraftWindow : GameWindow
   private void LoadWorld(string name = "default")
   {
     _currentWorldName = name;
-    var (data, chunks) = WorldSaveManager.Load(name);
+    var (data, chunks, metadata) = WorldSaveManager.Load(name);
     if (data == null) return;
 
     _ticker.Player!.Position = new Vector3(data.PlayerX, data.PlayerY, data.PlayerZ);
@@ -683,6 +690,8 @@ public sealed class KCraftWindow : GameWindow
         var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
         if (chunkPos.X != cx || chunkPos.Z != cz) continue;
         chunk.LoadRawBlocks(rawData);
+        if (metadata.TryGetValue((cx, cz), out var metaData))
+          chunk.LoadRawMetadata(metaData);
         break;
       }
     }
@@ -703,7 +712,7 @@ public sealed class KCraftWindow : GameWindow
     _pendingWorldName = name;
     _currentWorldName = name;
 
-    var (data, chunks) = WorldSaveManager.Load(name);
+    var (data, chunks, metadata) = WorldSaveManager.Load(name);
 
     // Welt neu erstellen
     _world.Dispose();
@@ -718,6 +727,7 @@ public sealed class KCraftWindow : GameWindow
       _currentGameMode = (GameMode)data.GameMode;
       ApplyGameMode(_currentGameMode);
       _pendingSavedChunks = chunks;
+      _pendingSavedMetadata = metadata;
     }
     else
     {

@@ -76,10 +76,16 @@ public sealed class Texture2D : IDisposable
   {
     int handle = GL.GenTexture();
     GL.BindTexture(TextureTarget.Texture2D, handle);
+
     GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
         width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, data);
+
     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+
+    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+
     GL.BindTexture(TextureTarget.Texture2D, 0);
     return handle;
   }

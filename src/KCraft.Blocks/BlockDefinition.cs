@@ -14,4 +14,5 @@ public sealed class BlockDefinition
   public bool IsSwimmable { get; set; } = false;
   public bool UsesCTM { get; set; } = false; // Connected Texture Mod (CTM) support just in vanilla bc why need a mod when you can just do it yourself
   public string CTMTexture { get; set; } = "";
+  public bool IsStairs { get; set; } = false;
 }
