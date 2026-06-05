@@ -7,14 +7,16 @@ namespace KCraft.World;
 
 public static class FaceVisibility
 {
-  private static bool IsTransparent(Block block) => block switch
+  private static bool CanSeeThrough(Block block)
   {
-    Block.Air => true,
-    Block.OakLeaves => true,
-    Block.Water => true,
-    Block.Glass => true,
-    _ => false,
-  };
+    if (block == Block.Air) return true;
+
+    var def = BlockRegistry.Definitions.TryGetValue(block, out var definition)
+      ? definition
+      : new BlockDefinition();
+
+    return def.IsTransparent || !def.IsFullCube;
+  }
 
   public static bool IsVisible(Chunk chunk, int x, int y, int z, FaceDirection face,
       Func<int, int, int, Block?>? getWorldBlock = null, int chunkX = 0, int chunkZ = 0)
@@ -38,7 +40,7 @@ public static class FaceVisibility
       var neighbor = chunk.GetBlock(nx, ny, nz); // ← erst hier!
       if (current == Block.Water && neighbor == Block.Water) return false;
       if (current == Block.Glass && neighbor == Block.Glass) return false;
-      return IsTransparent(neighbor);
+      return CanSeeThrough(neighbor);
     }
 
     // Chunk-Grenze
@@ -52,7 +54,7 @@ public static class FaceVisibility
       if (worldNeighbor == null) return true;
       if (current == Block.Water && worldNeighbor == Block.Water) return false;
       if (current == Block.Glass && worldNeighbor == Block.Glass) return false;
-      return IsTransparent(worldNeighbor.Value);
+      return CanSeeThrough(worldNeighbor.Value);
     }
 
     return true;

@@ -73,4 +73,6 @@ public sealed class PlayerInventory
     _slots[7] = Block.OakStairs;
     _slots[8] = Block.StoneStairs;
   }
+
+  public int SelectedHotbarSlot { get; set; } = 0;
 }

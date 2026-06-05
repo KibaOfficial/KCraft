@@ -76,14 +76,18 @@ public static class BlockRegistry
       TextureTop = "oak_planks",
       TextureSide = "oak_planks",
       TextureBottom = "oak_planks",
+      IsFullCube = false,
       IsStairs = true,
+      IsTransparent = true, // Allow light to pass through stairs
     },
     [Block.StoneStairs] = new()
     {
       TextureTop = "stone",
       TextureSide = "stone",
       TextureBottom = "stone",
+      IsFullCube = false,
       IsStairs = true,
+      IsTransparent = true, // Allow light to pass through stairs
     },
   };
   public static BlockDefinition Get(Block block) => Definitions[block];

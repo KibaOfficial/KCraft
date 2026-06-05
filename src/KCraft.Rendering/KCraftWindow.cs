@@ -265,6 +265,7 @@ public sealed class KCraftWindow : GameWindow
     if (_ui.State == GameState.Playing ||
         _ui.State == GameState.Paused ||
         _ui.State == GameState.Inventory ||
+        _ui.State == GameState.CreativeInventory ||
         _ui.State == GameState.Benchmark)
     {
       float aspect = Size.X / (float)Size.Y;
@@ -307,7 +308,10 @@ public sealed class KCraftWindow : GameWindow
         _debug.DrawFullscreenRect(new Vector2(Size.X, Size.Y), waterColor);
       }
 
-      if (_ui.State == GameState.Playing || _ui.State == GameState.Paused || _ui.State == GameState.Inventory)
+      if (_ui.State == GameState.Playing ||
+          _ui.State == GameState.Paused ||
+          _ui.State == GameState.Inventory ||
+          _ui.State == GameState.CreativeInventory)
       {
         _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
           _world.ChunkCount, _visibleChunks, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
@@ -316,6 +320,8 @@ public sealed class KCraftWindow : GameWindow
         _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
         if (_ui.State == GameState.Inventory)
           _ui.Inventory.Draw(new Vector2(Size.X, Size.Y), _mousePosition.X, _mousePosition.Y);
+        if (_ui.State == GameState.CreativeInventory)
+          _ui.CreativeInventory.Draw(new Vector2(Size.X, Size.Y), _mousePosition.X, _mousePosition.Y);
       }
       else if (_ui.State == GameState.Benchmark)
       {
@@ -387,37 +393,38 @@ public sealed class KCraftWindow : GameWindow
   {
     base.OnKeyDown(e);
     if (e.IsRepeat) return;
+    var stateBeforeKey = _ui.State;
     _ui.HandleKeyDown(e.Key, KeyboardState.IsKeyDown(Keys.LeftShift));
 
     switch (e.Key)
     {
       case Keys.Escape:
-        if (_ui.State == GameState.Inventory)
+        if (stateBeforeKey == GameState.Inventory || stateBeforeKey == GameState.CreativeInventory)
         {
           _ui.SetState(GameState.Playing);
           CursorState = CursorState.Grabbed;
           _firstMouse = true;
         }
-        else if (_ui.State == GameState.Playing) PauseGame();
-        else if (_ui.State == GameState.Paused) ResumeGame();
+        else if (stateBeforeKey == GameState.Playing) PauseGame();
+        else if (stateBeforeKey == GameState.Paused) ResumeGame();
         break;
 
-      case Keys.F3 when _ui.State == GameState.Playing:
+      case Keys.F3 when stateBeforeKey == GameState.Playing:
         if (!KeyboardState.IsKeyDown(Keys.G))
           _debug.Visible = !_debug.Visible;
         break;
-      case Keys.F4 when _ui.State == GameState.Playing:
+      case Keys.F4 when stateBeforeKey == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
         {
           _gameModeSwitcher.Visible = true;
           _gameModeSwitcher.CycleNext();
         }
         break;
-      case Keys.B when _ui.State == GameState.Playing:
+      case Keys.B when stateBeforeKey == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
           _hitbox.Visible = !_hitbox.Visible;
         break;
-      case Keys.N when _ui.State == GameState.Playing:
+      case Keys.N when stateBeforeKey == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
         {
           _freeCam = !_freeCam;
@@ -426,7 +433,7 @@ public sealed class KCraftWindow : GameWindow
             _camera.Position = _ticker.Player.EyePosition;
         }
         break;
-      case Keys.G when _ui.State == GameState.Playing:
+      case Keys.G when stateBeforeKey == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
           _chunkBorders.Visible = !_chunkBorders.Visible;
         break;
@@ -439,9 +446,16 @@ public sealed class KCraftWindow : GameWindow
       case Keys.D7: _hotbar.SelectedSlot = 6; break;
       case Keys.D8: _hotbar.SelectedSlot = 7; break;
       case Keys.D9: _hotbar.SelectedSlot = 8; break;
-      case Keys.E when _ui.State == GameState.Playing:
-        _ui.SetState(GameState.Inventory);
+      case Keys.E when stateBeforeKey == GameState.Playing:
+        _ui.SetState(_currentGameMode == GameMode.Creative
+          ? GameState.CreativeInventory
+          : GameState.Inventory);
         CursorState = CursorState.Normal;
+        _firstMouse = true;
+        break;
+      case Keys.E when stateBeforeKey == GameState.CreativeInventory:
+        _ui.SetState(GameState.Playing);
+        CursorState = CursorState.Grabbed;
         _firstMouse = true;
         break;
     }
@@ -489,6 +503,11 @@ public sealed class KCraftWindow : GameWindow
       if (e.Button == MouseButton.Left)
         _ui.Inventory.HandleClick(_mousePosition.X, _mousePosition.Y);
     }
+    else if (_ui.State == GameState.CreativeInventory)
+    {
+      if (e.Button == MouseButton.Left)
+        _ui.CreativeInventory.HandleClick(_mousePosition.X, _mousePosition.Y);
+    }
     else
     {
       if (e.Button == MouseButton.Left)
@@ -520,6 +539,10 @@ public sealed class KCraftWindow : GameWindow
     else if (_ui.State == GameState.SelectWorld)
     {
       _ui.SelectWorld.HandleScroll(e.OffsetY);
+    }
+    else if (_ui.State == GameState.CreativeInventory)
+    {
+      _ui.CreativeInventory.HandleScroll(e.OffsetY);
     }
   }
 
@@ -629,6 +652,7 @@ public sealed class KCraftWindow : GameWindow
     _hitbox = new HitboxRenderer();
     _gameModeSwitcher = new GameModeSwitcher(font);
     _ui.Inventory.SetTextures(_textureManager);
+    _ui.CreativeInventory.SetTextures(_textureManager);
   }
 
   private void SetTickerWorldQueries()
