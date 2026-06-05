@@ -55,6 +55,14 @@ public sealed class ChunkMesh : IDisposable
             continue; // ← überspringt den foreach
           }
 
+          if (def.IsSlope)
+          {
+            var facing = (BlockFacing)chunk.GetMetadata(x, y, z);
+            AddSlopeFaces(_facesByTexture, x, y, z, facing,
+                def.TextureTop, def.TextureSide, def.TextureBottom);
+            continue;
+          }
+
           foreach (FaceDirection face in Enum.GetValues<FaceDirection>())
           {
             if (def.IsFluid)
@@ -668,6 +676,123 @@ public sealed class ChunkMesh : IDisposable
       FaceDirection.North or FaceDirection.South => (p.x, p.y),
       FaceDirection.East or FaceDirection.West => (p.z, p.y),
       _ => (p.x, p.y),
+    };
+  }
+
+  private static void AddSlopeFaces(
+  Dictionary<string, (List<float> verts, List<uint> indices, uint offset)> facesByTexture,
+  int x, int y, int z, BlockFacing facing,
+  string texTop, string texSide, string texBottom)
+  {
+    // Lokaler Basis-Keil:
+    // North = hohe Seite bei z=0, niedrige Seite bei z=1
+    var p000 = RotateSlopePoint(0f, 0f, 0f, facing);
+    var p100 = RotateSlopePoint(1f, 0f, 0f, facing);
+    var p101 = RotateSlopePoint(1f, 0f, 1f, facing);
+    var p001 = RotateSlopePoint(0f, 0f, 1f, facing);
+
+    var p010 = RotateSlopePoint(0f, 1f, 0f, facing);
+    var p110 = RotateSlopePoint(1f, 1f, 0f, facing);
+
+    (float x, float y, float z) W((float x, float y, float z) p)
+      => (x + p.x, y + p.y, z + p.z);
+
+    // Bottom
+    AddRawFace(facesByTexture, texBottom, FaceDirection.Down,
+      W(p001), W(p101), W(p100), W(p000));
+
+    // High vertical back face
+    AddRawFace(facesByTexture, texSide, FaceDirection.North,
+      W(p000), W(p100), W(p110), W(p010));
+
+    // Left triangle
+    AddTriFace(facesByTexture, texSide,
+      W(p010), W(p000), W(p001));
+
+    // Right triangle
+    AddTriFace(facesByTexture, texSide,
+      W(p100), W(p110), W(p101));
+
+    // Sloped top
+    AddRawFace(facesByTexture, texTop, FaceDirection.Up,
+      W(p010), W(p110), W(p101), W(p001));
+  }
+
+  private static void AddTriFace(
+   Dictionary<string, (List<float> verts, List<uint> indices, uint offset)> facesByTexture,
+   string texName,
+   (float x, float y, float z) v0,
+   (float x, float y, float z) v1,
+   (float x, float y, float z) v2)
+  {
+    if (!facesByTexture.TryGetValue(texName, out var group))
+    {
+      group = (new List<float>(), new List<uint>(), 0);
+      facesByTexture[texName] = group;
+    }
+
+    var verts = group.verts;
+    var indices = group.indices;
+    var offset = group.offset;
+
+    float b = 0.8f;
+
+    var uv0 = GetTriSideUv(v0);
+    var uv1 = GetTriSideUv(v1);
+    var uv2 = GetTriSideUv(v2);
+
+    verts.AddRange([v0.x, v0.y, v0.z, uv0.u, uv0.v, b]);
+    verts.AddRange([v1.x, v1.y, v1.z, uv1.u, uv1.v, b]);
+    verts.AddRange([v2.x, v2.y, v2.z, uv2.u, uv2.v, b]);
+
+    indices.AddRange([offset, offset + 1, offset + 2]);
+    offset += 3;
+
+    facesByTexture[texName] = (verts, indices, offset);
+  }
+
+  private static (float u, float v) GetTriSideUv((float x, float y, float z) p)
+  {
+    // Nimm X oder Z als horizontale Achse, je nachdem welche stärker variiert.
+    // Für Slope-Seiten reicht als erster Fix:
+    return (p.z + p.x, p.y);
+  }
+
+  private static void AddRawFace(
+    Dictionary<string, (List<float> verts, List<uint> indices, uint offset)> facesByTexture,
+    string texName, FaceDirection face,
+    (float x, float y, float z) v0,
+    (float x, float y, float z) v1,
+    (float x, float y, float z) v2,
+    (float x, float y, float z) v3)
+  {
+    if (!facesByTexture.TryGetValue(texName, out var group))
+    {
+      group = (new List<float>(), new List<uint>(), 0);
+      facesByTexture[texName] = group;
+    }
+    var verts = group.verts; var indices = group.indices; var offset = group.offset;
+    float b = FaceBrightness(face);
+    verts.AddRange([v0.x, v0.y, v0.z, 0f, 0f, b]);
+    verts.AddRange([v1.x, v1.y, v1.z, 1f, 0f, b]);
+    verts.AddRange([v2.x, v2.y, v2.z, 1f, 1f, b]);
+    verts.AddRange([v3.x, v3.y, v3.z, 0f, 1f, b]);
+    indices.AddRange([offset, offset + 2, offset + 1, offset, offset + 3, offset + 2]);
+    offset += 4;
+    facesByTexture[texName] = (verts, indices, offset);
+  }
+
+  private static (float x, float y, float z) RotateSlopePoint(
+  float x, float y, float z,
+  BlockFacing facing)
+  {
+    return facing switch
+    {
+      BlockFacing.North => (x, y, z),
+      BlockFacing.South => (1f - x, y, 1f - z),
+      BlockFacing.East => (1f - z, y, x),
+      BlockFacing.West => (z, y, 1f - x),
+      _ => (x, y, z),
     };
   }
 }

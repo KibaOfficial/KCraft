@@ -89,6 +89,24 @@ public static class BlockRegistry
       IsStairs = true,
       IsTransparent = true, // Allow light to pass through stairs
     },
+    [Block.OakSlope] = new()
+    {
+      TextureTop = "oak_planks",
+      TextureSide = "oak_planks",
+      TextureBottom = "oak_planks",
+      IsFullCube = false,
+      IsSlope = true,
+      IsTransparent = true,
+    },
+    [Block.StoneSlope] = new()
+    {
+      TextureTop = "stone",
+      TextureSide = "stone",
+      TextureBottom = "stone",
+      IsFullCube = false,
+      IsSlope = true,
+      IsTransparent = true,
+    },
   };
   public static BlockDefinition Get(Block block) => Definitions[block];
 }

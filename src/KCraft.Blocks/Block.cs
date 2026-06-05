@@ -20,4 +20,6 @@ public enum Block : byte
     Gravel = 11,
     OakStairs = 12,
     StoneStairs = 13,
+    OakSlope = 14,
+    StoneSlope = 15,
 }

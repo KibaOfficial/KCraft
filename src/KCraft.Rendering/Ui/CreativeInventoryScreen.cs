@@ -24,7 +24,7 @@ public sealed class CreativeInventoryScreen : Screen
         ("Blocks",   [Block.Grass, Block.Dirt, Block.Stone, Block.Sand, Block.Cobblestone, Block.Gravel, Block.Glass]),
         ("Wood",     [Block.OakLog, Block.OakPlanks, Block.OakLeaves]),
         ("Natural",  [Block.Water]),
-        ("Building", [Block.OakStairs, Block.StoneStairs]),
+        ("Building", [Block.OakStairs, Block.StoneStairs, Block.OakSlope, Block.StoneSlope]),
         ("Inv",      []), // Special: zeigt Survival Inv
     };
   private int _activeTab = 0;
