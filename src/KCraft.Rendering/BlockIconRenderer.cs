@@ -78,8 +78,15 @@ public sealed class BlockIconRenderer : IDisposable
 
     var def = BlockRegistry.Get(block);
 
+    // Für CTM Blöcke den normalen Textur-Namen nutzen
+    string texTop = def.UsesCTM ? def.CTMTexture.Replace("_ctm", "") : def.TextureTop;
+    string texSide = def.UsesCTM ? def.CTMTexture.Replace("_ctm", "") : def.TextureSide;
+
+
     GL.Enable(EnableCap.ScissorTest);
-    GL.Scissor((int)x, (int)(screen.Y - y - size), (int)size, (int)size);
+    float scissorY = screen.Y - y - size - size * 0.4f; // extra Platz nach oben
+    float scissorH = size * 1.4f; // höher
+    GL.Scissor((int)x, (int)scissorY, (int)size, (int)scissorH);
 
     float cx = x + size / 2f;
     float cy = y + size / 2f - 7f;
@@ -103,9 +110,9 @@ public sealed class BlockIconRenderer : IDisposable
                 : block == Block.Water ? new Vector3(0x3F / 255f, 0x76 / 255f, 0xE4 / 255f)
                 : white;
 
-    DrawFace(LeftFace(cx, cy, halfW, topH, sideH), def.TextureSide, LeftBrightness, tint, textures);
-    DrawFace(RightFace(cx, cy, halfW, topH, sideH), def.TextureSide, RightBrightness, tint, textures);
-    DrawFace(TopFace(cx, cy, halfW, topH), def.TextureTop, TopBrightness, topTint, textures);
+    DrawFace(LeftFace(cx, cy, halfW, topH, sideH), texSide, LeftBrightness, tint, textures);
+    DrawFace(RightFace(cx, cy, halfW, topH, sideH), texSide, RightBrightness, tint, textures);
+    DrawFace(TopFace(cx, cy, halfW, topH), texTop, TopBrightness, topTint, textures);
 
     GL.Disable(EnableCap.Blend);
     GL.Enable(EnableCap.CullFace);

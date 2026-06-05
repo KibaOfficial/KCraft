@@ -3,6 +3,7 @@
 
 using KCraft.Assets;
 using KCraft.Blocks;
+using KCraft.World;
 using OpenTK.Mathematics;
 
 namespace KCraft.Rendering;
@@ -23,7 +24,9 @@ public sealed class HotbarRenderer : IDisposable
   private static readonly Vector4 SlotBorderLight = new(1.0f, 1.0f, 1.0f, 1.0f); // Bottom+Right
   private static readonly Vector4 HotbarBg = new(0xC6 / 255f, 0xC6 / 255f, 0xC6 / 255f, 0.90f);
 
+  private readonly PlayerInventory _inventory;
   public int SelectedSlot { get; set; } = 0;
+  public Block SelectedBlock => _inventory.GetHotbar(SelectedSlot);
   public Block[] Slots { get; } = new Block[9]
   {
       Block.Grass, Block.Dirt, Block.Stone,
@@ -31,12 +34,11 @@ public sealed class HotbarRenderer : IDisposable
       Block.Glass, Block.OakStairs, Block.StoneStairs,
   };
 
-  public Block SelectedBlock => Slots[SelectedSlot];
-
-  public HotbarRenderer(string fontPath)
+  public HotbarRenderer(string fontPath, PlayerInventory inventory)
   {
     _text = new TextRenderer(fontPath);
     _icon = new BlockIconRenderer();
+    _inventory = inventory;
   }
 
   public void Draw(Vector2 screen, TextureManager textures)
@@ -79,7 +81,7 @@ public sealed class HotbarRenderer : IDisposable
       _text.DrawRect(x, hotbarY, SlotSize, SlotSize, screen, SlotBg);
 
       // Block Icon
-      var block = Slots[i];
+      var block = _inventory.GetHotbar(i);
       if (block != Block.Air)
         _icon.Draw(block, x, hotbarY, SlotSize, screen, textures);
 

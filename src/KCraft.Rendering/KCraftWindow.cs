@@ -55,6 +55,7 @@ public sealed class KCraftWindow : GameWindow
   private readonly FrustumCuller _frustum = new();
   private int _visibleChunks;
   private readonly List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> _visibleList = [];
+  private readonly PlayerInventory _playerInventory = new();
   // ── Shaders ───────────────────────────────────────────────────────────
   private const string VertexShaderSource = """
     #version 410 core
@@ -114,8 +115,8 @@ public sealed class KCraftWindow : GameWindow
     SetTickerWorldQueries();
     _textureManager = new TextureManager("assets/dev/faithful");
 
-    InitRenderers();
     InitUi();
+    InitRenderers();
 
     _ui.SetState(GameState.MainMenu);
     CursorState = CursorState.Normal;
@@ -263,6 +264,7 @@ public sealed class KCraftWindow : GameWindow
 
     if (_ui.State == GameState.Playing ||
         _ui.State == GameState.Paused ||
+        _ui.State == GameState.Inventory ||
         _ui.State == GameState.Benchmark)
     {
       float aspect = Size.X / (float)Size.Y;
@@ -305,13 +307,15 @@ public sealed class KCraftWindow : GameWindow
         _debug.DrawFullscreenRect(new Vector2(Size.X, Size.Y), waterColor);
       }
 
-      if (_ui.State == GameState.Playing || _ui.State == GameState.Paused)
+      if (_ui.State == GameState.Playing || _ui.State == GameState.Paused || _ui.State == GameState.Inventory)
       {
         _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
           _world.ChunkCount, _visibleChunks, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
         _gameModeSwitcher.Draw(new Vector2(Size.X, Size.Y));
         _crosshair.Draw(new Vector2(Size.X, Size.Y));
         _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
+        if (_ui.State == GameState.Inventory)
+          _ui.Inventory.Draw(new Vector2(Size.X, Size.Y), _mousePosition.X, _mousePosition.Y);
       }
       else if (_ui.State == GameState.Benchmark)
       {
@@ -388,7 +392,13 @@ public sealed class KCraftWindow : GameWindow
     switch (e.Key)
     {
       case Keys.Escape:
-        if (_ui.State == GameState.Playing) PauseGame();
+        if (_ui.State == GameState.Inventory)
+        {
+          _ui.SetState(GameState.Playing);
+          CursorState = CursorState.Grabbed;
+          _firstMouse = true;
+        }
+        else if (_ui.State == GameState.Playing) PauseGame();
         else if (_ui.State == GameState.Paused) ResumeGame();
         break;
 
@@ -429,6 +439,11 @@ public sealed class KCraftWindow : GameWindow
       case Keys.D7: _hotbar.SelectedSlot = 6; break;
       case Keys.D8: _hotbar.SelectedSlot = 7; break;
       case Keys.D9: _hotbar.SelectedSlot = 8; break;
+      case Keys.E when _ui.State == GameState.Playing:
+        _ui.SetState(GameState.Inventory);
+        CursorState = CursorState.Normal;
+        _firstMouse = true;
+        break;
     }
   }
 
@@ -467,7 +482,12 @@ public sealed class KCraftWindow : GameWindow
       }
 
       if (e.Button == MouseButton.Middle && _lastHit.Hit)
-        _hotbar.Slots[_hotbar.SelectedSlot] = _lastHit.Block;
+        _playerInventory.SetHotbar(_hotbar.SelectedSlot, _lastHit.Block);
+    }
+    else if (_ui.State == GameState.Inventory)
+    {
+      if (e.Button == MouseButton.Left)
+        _ui.Inventory.HandleClick(_mousePosition.X, _mousePosition.Y);
     }
     else
     {
@@ -604,9 +624,11 @@ public sealed class KCraftWindow : GameWindow
     _chunkBorders = new ChunkBorderRenderer();
     _crosshair = new CrosshairRenderer(font);
     _blockHighlight = new BlockHighlightRenderer();
-    _hotbar = new HotbarRenderer(font);
+    _playerInventory.SetDefaultHotbar();
+    _hotbar = new HotbarRenderer(font, _playerInventory);
     _hitbox = new HitboxRenderer();
     _gameModeSwitcher = new GameModeSwitcher(font);
+    _ui.Inventory.SetTextures(_textureManager);
   }
 
   private void SetTickerWorldQueries()
@@ -617,7 +639,7 @@ public sealed class KCraftWindow : GameWindow
 
   private void InitUi()
   {
-    _ui = new UiManager("assets/dev/font_ascii.png");
+    _ui = new UiManager("assets/dev/font_ascii.png", _playerInventory);
     _ui.Layout(new Vector2(Size.X, Size.Y));
     _ui.MainMenu.OnQuit += Close;
     _ui.PauseMenu.OnResume += ResumeGame;
