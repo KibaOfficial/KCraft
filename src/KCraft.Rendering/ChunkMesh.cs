@@ -119,7 +119,7 @@ public sealed class ChunkMesh : IDisposable
       allVerts.AddRange(verts);
       foreach (var i in inds)
         allIndices.Add(i + globalOffset);
-      globalOffset += (uint)(verts.Count / 5);
+      globalOffset += (uint)(verts.Count / 6);
       _subMeshes.Add((texName, startIndex, inds.Count));
     }
     UploadSolid(allVerts, allIndices);
@@ -135,7 +135,7 @@ public sealed class ChunkMesh : IDisposable
       allWaterVerts.AddRange(verts);
       foreach (var i in inds)
         allWaterIndices.Add(i + waterGlobalOffset);
-      waterGlobalOffset += (uint)(verts.Count / 5);
+      waterGlobalOffset += (uint)(verts.Count / 6);
       _waterSubMeshes.Add((texName, startIndex, inds.Count));
     }
 
@@ -195,10 +195,11 @@ public sealed class ChunkMesh : IDisposable
 
   // ── Solid Face ────────────────────────────────────────────────────────
   private static void AddFace(List<float> verts, List<uint> indices,
-      ref uint offset, int x, int y, int z, FaceDirection face)
+    ref uint offset, int x, int y, int z, FaceDirection face)
   {
     float x0 = x, y0 = y, z0 = z;
     float x1 = x + 1f, y1 = y + 1f, z1 = z + 1f;
+    float b = FaceBrightness(face);
 
     var (v0, v1, v2, v3) = face switch
     {
@@ -211,10 +212,10 @@ public sealed class ChunkMesh : IDisposable
       _ => throw new ArgumentOutOfRangeException(nameof(face))
     };
 
-    verts.AddRange([v0.Item1, v0.Item2, v0.Item3, 0f, 0f]);
-    verts.AddRange([v1.Item1, v1.Item2, v1.Item3, 1f, 0f]);
-    verts.AddRange([v2.Item1, v2.Item2, v2.Item3, 1f, 1f]);
-    verts.AddRange([v3.Item1, v3.Item2, v3.Item3, 0f, 1f]);
+    verts.AddRange([v0.Item1, v0.Item2, v0.Item3, 0f, 0f, b]);
+    verts.AddRange([v1.Item1, v1.Item2, v1.Item3, 1f, 0f, b]);
+    verts.AddRange([v2.Item1, v2.Item2, v2.Item3, 1f, 1f, b]);
+    verts.AddRange([v3.Item1, v3.Item2, v3.Item3, 0f, 1f, b]);
     indices.AddRange([offset, offset + 2, offset + 1, offset, offset + 3, offset + 2]);
     offset += 4;
   }
@@ -291,10 +292,11 @@ public sealed class ChunkMesh : IDisposable
       }
     }
 
-    verts.AddRange([v0.Item1, v0.Item2, v0.Item3, 0f, 0f]);
-    verts.AddRange([v1.Item1, v1.Item2, v1.Item3, 1f, 0f]);
-    verts.AddRange([v2.Item1, v2.Item2, v2.Item3, 1f, 1f]);
-    verts.AddRange([v3.Item1, v3.Item2, v3.Item3, 0f, 1f]);
+    float b = face == FaceDirection.Up ? 1.0f : 0.7f;
+    verts.AddRange([v0.Item1, v0.Item2, v0.Item3, 0f, 0f, b]);
+    verts.AddRange([v1.Item1, v1.Item2, v1.Item3, 1f, 0f, b]);
+    verts.AddRange([v2.Item1, v2.Item2, v2.Item3, 1f, 1f, b]);
+    verts.AddRange([v3.Item1, v3.Item2, v3.Item3, 0f, 1f, b]);
     indices.AddRange([offset, offset + 2, offset + 1, offset, offset + 3, offset + 2]);
     offset += 4;
     facesByTexture[texName] = (verts, indices, offset);
@@ -323,6 +325,17 @@ public sealed class ChunkMesh : IDisposable
 
     return GetFluidAt(chunk, getWorldFluid, chunkX, chunkZ, nx, ny, nz);
   }
+
+  private static float FaceBrightness(FaceDirection face) => face switch
+  {
+    FaceDirection.Up => 1.00f,
+    FaceDirection.North => 0.80f,
+    FaceDirection.South => 0.80f,
+    FaceDirection.East => 0.60f,
+    FaceDirection.West => 0.60f,
+    FaceDirection.Down => 0.50f,
+    _ => 1.0f
+  };
 
   private static float GetSideBottom(
       Chunk chunk,
@@ -436,10 +449,12 @@ public sealed class ChunkMesh : IDisposable
 
   private static void SetupAttribs()
   {
-    GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+    GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
     GL.EnableVertexAttribArray(0);
-    GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+    GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 6 * sizeof(float), 3 * sizeof(float));
     GL.EnableVertexAttribArray(1);
+    GL.VertexAttribPointer(2, 1, VertexAttribPointerType.Float, false, 6 * sizeof(float), 5 * sizeof(float));
+    GL.EnableVertexAttribArray(2);
   }
 
   // ── Dispose ───────────────────────────────────────────────────────────
@@ -617,10 +632,11 @@ public sealed class ChunkMesh : IDisposable
     var uv2 = GetBoxUv(face, v2, stairFacing);
     var uv3 = GetBoxUv(face, v3, stairFacing);
 
-    verts.AddRange([v0.x, v0.y, v0.z, uv0.u, uv0.v]);
-    verts.AddRange([v1.x, v1.y, v1.z, uv1.u, uv1.v]);
-    verts.AddRange([v2.x, v2.y, v2.z, uv2.u, uv2.v]);
-    verts.AddRange([v3.x, v3.y, v3.z, uv3.u, uv3.v]);
+    float b = FaceBrightness(face);
+    verts.AddRange([v0.x, v0.y, v0.z, uv0.u, uv0.v, b]);
+    verts.AddRange([v1.x, v1.y, v1.z, uv1.u, uv1.v, b]);
+    verts.AddRange([v2.x, v2.y, v2.z, uv2.u, uv2.v, b]);
+    verts.AddRange([v3.x, v3.y, v3.z, uv3.u, uv3.v, b]);
 
     indices.AddRange([offset, offset + 2, offset + 1, offset, offset + 3, offset + 2]);
     offset += 4;

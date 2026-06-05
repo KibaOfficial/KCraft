@@ -62,13 +62,16 @@ public sealed class KCraftWindow : GameWindow
     #version 410 core
     layout(location = 0) in vec3 aPosition;
     layout(location = 1) in vec2 aTexCoord;
+    layout(location = 2) in float aBrightness;
     out vec2 vTexCoord;
+    out float vBrightness;
     uniform mat4 uModel;
     uniform mat4 uView;
     uniform mat4 uProjection;
     void main()
     {
       vTexCoord   = aTexCoord;
+      vBrightness = aBrightness;
       gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
     }
     """;
@@ -76,6 +79,7 @@ public sealed class KCraftWindow : GameWindow
   private const string FragmentShaderSource = """
     #version 410 core
     in vec2 vTexCoord;
+    in float vBrightness;
     out vec4 FragColor;
     uniform sampler2D uTexture;
     uniform vec3 uTint;
@@ -85,7 +89,7 @@ public sealed class KCraftWindow : GameWindow
     {
       vec4 color = texture(uTexture, vTexCoord);
       if (color.a < 0.1) discard;
-      FragColor = vec4(color.rgb * uTint * uAmbient, color.a * uAlpha);
+      FragColor = vec4(color.rgb * uTint * uAmbient * vBrightness, color.a * uAlpha);
     }
     """;
 
