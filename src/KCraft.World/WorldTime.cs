@@ -15,7 +15,7 @@ public sealed class WorldTime
   public const int Midnight = 18000;  // Mitternacht
 
   // Gesamte Weltzeit (wächst unbegrenzt, nie reset)
-  public long TotalTicks { get; private set; } = 14000; // Startzeit: Debug Nacht
+  public long TotalTicks { get; private set; } = 6000; // Startzeit: Mittag
   // public long TotalTicks { get; private set; } = 11500; // Startzeit: kurz vor Sonnenuntergang
 
   // Tageszeit (0-23999)
