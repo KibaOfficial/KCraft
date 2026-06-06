@@ -195,8 +195,7 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 | GTX 1660 Ti + i7-8750H | v0.5.0 | 4954 | 55 | 12 |
 | GTX 1060 + Intel i7 | v0.5.0 | 4403 | 45 | 12 |
 | RTX 3060 + Ryzen 3800X | v0.6.0 | 5986 | 65 | 12 |
-
-*v0.7.0 benchmark pending.*
+| RTX 3060 + Ryzen 3800X | v0.7.0 | 5949 | 60 | 4 |
 
 ---
 
