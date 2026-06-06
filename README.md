@@ -15,7 +15,7 @@
 [![OpenGL](https://img.shields.io/badge/OpenGL-4.6-5586A4?style=flat-square&logo=opengl&logoColor=white)](https://www.opengl.org/)
 [![OpenTK](https://img.shields.io/badge/OpenTK-4.9.4-1E88E5?style=flat-square)](https://opentk.net/)
 [![Tests](https://img.shields.io/badge/Tests-50%20passing-brightgreen?style=flat-square)](./tests/)
-[![Version](https://img.shields.io/badge/Version-v0.6.0-orange?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-v0.7.0-orange?style=flat-square)]()
 [![Author](https://img.shields.io/badge/Author-KibaOfficial-blueviolet?style=flat-square&logo=github)](https://github.com/KibaOfficial)
 
 </div>
@@ -66,7 +66,8 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **Block Breaking** — left click, instant, chunk mesh rebuild
 - **Block Placing** — right click with player collision check
 - **Block Pick** — middle click copies targeted block to hotbar slot
-- **Block Facing** — directional blocks (stairs) face toward the player on placement
+- **Block Facing** — directional blocks (stairs, slopes) face toward the player on placement
+- **Stair Collision** — dual-AABB stair geometry with correct step-up (0.5f lower half)
 - **World Selection** — choose existing saves
 - **World Creation** — custom world names and seeds
 
@@ -78,10 +79,15 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **Cross-chunk face visibility** — water culling across chunk borders
 - **Connected Textures (CTM)** — Glass uses a 16-tile spritesheet for seamless joins on all 6 faces
 - **Per-face textures** — grass uses separate top/side/bottom textures
+- **Face brightness** — directional lighting per face (Top 1.0, N/S 0.8, E/W 0.6, Bottom 0.5)
 - Transparent block rendering (Oak Leaves, Water, Glass)
 - Faithful 64x development textures
 - **Biome tint** — green tint on grass via shader uniform
-- **Dynamic sky renderer** — day/night gradient, correct sun arc (east→west)
+- **Dynamic sky renderer** — reworked with inverse view matrix for correct world-space directions
+- **Sun arc** — correct east→noon→west trajectory based on WorldTime
+- **Moon** — rendered opposite the sun, fades in at night
+- **Stars** — ~780 geometry-based stars (fixed seed 10842 like MC), additive blending, night fade
+- **Clouds** — procedural greedy-meshed cloud layer (OpenSimplex2 noise, Y=192, 3×3 tile rendering)
 - **Sunset colours** — orange/pink dusk transition
 - **Ambient light** — world darkens at night (~27% like MC Brightness 100)
 - **Water rendering** — translucent two-pass alpha blending, corner height interpolation
@@ -101,21 +107,40 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **Gravel** — standard solid block
 - **Oak Stairs** — directional L-shaped geometry, facing saved per block
 - **Stone Stairs** — directional L-shaped geometry, facing saved per block
+- **Oak Slope** — directional 45° wedge geometry (triangular prism), facing saved per block
+- **Stone Slope** — directional 45° wedge geometry (triangular prism), facing saved per block
 - **Block Metadata system** — per-block state stored in `Chunk._metadata`, persisted as `.kmeta`
+- **IsFullCube** — face visibility system respects non-full-cube blocks (stairs, slopes)
+
+### 🎒 Inventory & UI
+
+- **Player Inventory** — 36 slots (0–8 hotbar, 9–35 main)
+- **Survival Inventory Screen** — drag & drop swap, 3×9 main grid + hotbar row
+- **Creative Inventory Screen** — tabbed (Blocks, Wood, Natural, Building, Inv), scrollable item grid, click-to-hotbar
+- **HotbarRenderer** — driven by PlayerInventory
+- **Options Screen rework** — page-based navigation (Main, Video)
+- **Video Settings** — FOV slider (30°–120°), Render Distance slider (2–32)
+- **Slider component** — MC-style draggable slider with live value display
+- **GameSettings** — global FOV + RenderDistance, applied live
 
 ### 🖥️ UI System
 
 - **Main Menu** — Singleplayer, Multiplayer _(disabled)_, Benchmark, Options, Quit
 - **Pause Menu** — Back to Game, Options, Quit to Title
-- **Options Menu** — GUI Scale 1×–4×
+- **Options Menu** — page-based: Main → Video Settings
 - **Loading Screen** — Chunk Colormap (17×17 pixel grid) + progress bar like MC Java Edition
 - **World Selection Screen**
 - **Create World Screen**
 - **Benchmark Result Screen** — Score, Phase Stats, Hardware Info, KCraft Version
 - **Text Input System** — world names and custom seeds
-- `GameState` machine — MainMenu / Playing / Paused / Options / Loading / Benchmark / BenchmarkResult
+- `GameState` machine — MainMenu / Playing / Paused / Inventory / CreativeInventory / Options / Loading / Benchmark / BenchmarkResult
 - MC-accurate button colours — Normal / Hover (yellow text) / Disabled
 - `Screen` base class with `Layout` / `Draw` / `HandleClick`
+
+### 🎮 Discord Integration
+
+- **Discord Rich Presence** — custom Named Pipe IPC implementation (no SDK dependency)
+- Presence updates for: Main Menu, Loading, Playing, Paused, Inventory, Creative Inventory, Options, Benchmark, Benchmark Results
 
 ### 📊 Benchmark Suite
 
@@ -149,6 +174,8 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **RebuildNeighborsIfNeeded** — neighbor chunks only rebuilt at water borders
 - **GPU Preference Selector** — registry-based for NVIDIA Optimus / AMD PowerXpress
 - **WinExe conditional** — Debug builds keep console, Release builds suppress it
+- **Star Geometry** — static VAO, generated once at startup (fixed seed, ~780 quads)
+- **Cloud Greedy Mesh** — noise map → merged quads, 3×3 tiled around player
 
 ### 📦 Packaging
 
@@ -167,8 +194,9 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 | RTX 3060 + Ryzen 3800X | v0.5.0 | 4650 | 51 | 8 |
 | GTX 1660 Ti + i7-8750H | v0.5.0 | 4954 | 55 | 12 |
 | GTX 1060 + Intel i7 | v0.5.0 | 4403 | 45 | 12 |
+| RTX 3060 + Ryzen 3800X | v0.6.0 | 5986 | 65 | 12 |
 
-*v0.5.0 score delta vs v0.3.0 due to water rendering + physics simulation.*
+*v0.7.0 benchmark pending.*
 
 ---
 
@@ -194,13 +222,13 @@ kcraft/
 │   ├── KCraft.Assets/           # Texture2D (grid + frame extraction), TextureManager
 │   ├── KCraft.Blocks/           # Block enum, BlockDefinition, BlockRegistry,
 │   │                            # BlockFacing, BlockFacingHelper
-│   ├── KCraft.Core/             # KCraftVersion, shared types
+│   ├── KCraft.Core/             # KCraftVersion, GameSettings, DiscordRpc, shared types
 │   ├── KCraft.Rendering/        # KCraftWindow, Camera, ChunkMesh,
 │   │   │                        # FrustumCuller, TextRenderer, DebugOverlay,
-│   │   │                        # ChunkBorderRenderer, SkyRenderer,
-│   │   │                        # CrosshairRenderer, BlockHighlightRenderer,
-│   │   │                        # BlockIconRenderer, HotbarRenderer,
-│   │   │                        # HitboxRenderer, WorldManager, UiScale
+│   │   │                        # ChunkBorderRenderer, SkyRenderer, StarRenderer,
+│   │   │                        # CloudRenderer, CrosshairRenderer,
+│   │   │                        # BlockHighlightRenderer, BlockIconRenderer,
+│   │   │                        # HotbarRenderer, HitboxRenderer, UiScale
 │   │   ├── Benchmark/
 │   │   │    ├── BenchmarkData
 │   │   │    ├── BenchmarkSession
@@ -210,17 +238,20 @@ kcraft/
 │   │        ├── UiManager
 │   │        ├── Screen
 │   │        ├── Button
+│   │        ├── Slider
 │   │        ├── TextInput
 │   │        ├── LoadingScreen
 │   │        ├── MainMenuScreen
 │   │        ├── PauseMenuScreen
 │   │        ├── OptionsScreen
+│   │        ├── InventoryScreen
+│   │        ├── CreativeInventoryScreen
 │   │        ├── SelectWorldScreen
 │   │        ├── NewWorldScreen
 │   │        ├── BenchmarkHudScreen
 │   │        └── BenchmarkResultScreen
 │   └── KCraft.World/            # Chunk (blocks + fluidLevels + metadata),
-│       │                        # AABB, Entity, Player,
+│       │                        # AABB, Entity, Player, PlayerInventory,
 │       │                        # BlockRaycaster, WorldTime, WorldTicker,
 │       │                        # FaceVisibility, WaterSimulator, FastNoiseLite,
 │       │                        # WorldSaveManager (.kchunk + .kmeta)
@@ -265,10 +296,10 @@ dotnet test
 ### Package
 
 ```bash
-.\build.ps1 -Version "0.6.0"
+.\build.ps1 -Version "0.7.0"
 ```
 
-Produces `installer/KCraft-v0.6.0-Setup.exe` and `installer/KCraft-v0.6.0-linux-x64.tar.gz`.
+Produces `installer/KCraft-v0.7.0-Setup.exe` and `installer/KCraft-v0.7.0-linux-x64.tar.gz`.
 
 ---
 
@@ -292,12 +323,14 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 | `Right Click` | Place block |
 | `Middle Click` | Pick block |
 | `Scroll / 1–9` | Select hotbar slot |
+| `E` | Open Inventory / Creative Inventory |
 | `Mouse` | Look around |
-| `Escape` | Pause / release cursor |
+| `Escape` | Pause / Close inventory / release cursor |
 | `F3` | Toggle debug overlay |
 | `F3 + G` | Toggle chunk borders |
 | `F3 + N` | Toggle free cam |
 | `F3 + B` | Toggle hitboxes |
+| `F3 + F4` | Cycle gamemode |
 
 ---
 
@@ -307,7 +340,7 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 - [x] Water generation + physics
 - [x] Beaches
 - [x] Biomes (Plains, Beach, Ocean)
-- [ ] Water decay (flowing water disappears without source)
+- [x] Water decay (flowing water disappears without source)
 - [ ] Better structure generation
 - [ ] More tree variants
 
@@ -315,8 +348,8 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 - [x] Swimming physics
 - [x] Underwater effect (blue overlay)
 - [x] Block facing system
-- [ ] Stair collision matching geometry
-- [ ] Inventory system
+- [x] Stair collision matching geometry
+- [x] Inventory system
 - [ ] Item system
 - [ ] Crafting system
 - [ ] Survival progression
@@ -325,9 +358,11 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 - [x] Frustum culling
 - [x] Loading screen with chunk colormap
 - [x] Connected textures (CTM) for glass
+- [x] Face brightness (directional lighting)
+- [x] Clouds
+- [x] Stars and moon
 - [ ] Ambient occlusion
-- [ ] Clouds
-- [ ] Stars and moon
+- [ ] Smooth lighting
 
 ### 🌐 Multiplayer
 - [ ] Networking layer
@@ -356,6 +391,9 @@ Copyright © 2026 KibaOfficial. All rights reserved.
 **Textures**: [Faithful 64x](https://faithfulpack.net/) by the Faithful Resource Pack team — used as development placeholders under the [Faithful License](./assets/dev/faithful/FAITHFUL_LICENSE.txt). KCraft is non-commercial and open source. Faithful 64x is not affiliated with or endorsed by Mojang Studios.
 
 **Noise**: [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) by Auburn — MIT License.
+
+<!-- **Code Signing**: Certificate provided by [SignPath Foundation](https://signpath.org/) — 
+free code signing for open source projects. -->
 
 ---
 
