@@ -5,6 +5,6 @@ namespace KCraft.Core;
 
 public static class KCraftVersion
 {
-  public const string Version = "0.7.0";
+  public const string Version = "1.0.0-dev";
   public const string FullName = $"KCraft v{Version}";
 }

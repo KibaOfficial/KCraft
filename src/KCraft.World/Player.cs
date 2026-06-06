@@ -19,8 +19,8 @@ public sealed class Player : Entity
   public const float WalkSpeed = 0.65f;
   public const float SprintSpeed = 1.1f;
   public const float SneakSpeed = 0.22f;
-  public const float FlySpeed = 1.2f;
-  public const float FlySprintSpeed = 2.4f;
+  public const float FlySpeed = 1.0f;
+  public const float FlySprintSpeed = 4.0f;
   public const float Drag = 0.6f;
   public const float WaterGravity = -5.0f;
   public const float WaterDrag = 0.82f;
@@ -64,24 +64,23 @@ public sealed class Player : Entity
     // Spectator — noclip, kein Gravity
     if (IsSpectator)
     {
+      Move(Velocity.X * (1f / 20f), Velocity.Y * (1f / 20f), Velocity.Z * (1f / 20f), getCollisionBlock, getMetadata);
       var vel = Velocity;
       vel.X *= 0.5f;
-      vel.Y *= 0.5f;
       vel.Z *= 0.5f;
       Velocity = vel;
-      Position += Velocity * (1f / 20f);
       return;
     }
 
     // Creative Flying
     if (IsCreative && IsFlying)
     {
+      Move(Velocity.X * (1f / 20f), Velocity.Y * (1f / 20f), Velocity.Z * (1f / 20f), getCollisionBlock, getMetadata);
       var vel = Velocity;
       vel.X *= 0.8f;
-      vel.Y *= 0.8f;
       vel.Z *= 0.8f;
+      vel.Y = 0f;
       Velocity = vel;
-      Position += Velocity * (1f / 20f);
       return;
     }
 
@@ -199,7 +198,7 @@ public sealed class Player : Entity
     if (IsSpectator || (IsCreative && IsFlying))
     {
       vel.X += mx * speed;
-      vel.Y += my * speed;
+      vel.Y = my * 10f;
       vel.Z += mz * speed;
     }
     else
