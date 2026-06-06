@@ -98,7 +98,10 @@ public sealed class Player : Entity
     }
     else
     {
-      v.Y += Gravity * (1f / 20f);
+      if (!OnGround)
+        v.Y += Gravity * (1f / 20f);
+      else
+        v.Y = MathF.Max(v.Y, 0f); // kein negativer Y-Drift auf Boden/Slope
     }
     Velocity = v;
 

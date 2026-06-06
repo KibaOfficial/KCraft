@@ -84,7 +84,6 @@ public abstract class Entity
         aabb = steppedAabb;
         steppedUp = true;
 
-        // Horizontale Velocity resetten damit kein Schlittern
         var vel2 = Velocity;
         vel2.X = 0;
         vel2.Z = 0;
@@ -93,8 +92,14 @@ public abstract class Entity
     }
     // ── Ende Step-Up ──────────────────────────────────────────────────
 
-    // OnGround — Step-Up ODER normaler Boden-Clip
-    OnGround = steppedUp || (originalDy < 0 && Math.Abs(dy - originalDy) > 0.001f);
+    // ── Slope Heightfield ─────────────────────────────────────────────
+    bool onSlope = false;
+    if (getMetadata != null)
+      onSlope = ResolveSlope(ref aabb, getBlock, getMetadata, Width);
+    // ── Ende Slope Heightfield ────────────────────────────────────────
+
+    // OnGround — Slope ODER Step-Up ODER normaler Boden-Clip
+    OnGround = onSlope || steppedUp || (originalDy < 0 && Math.Abs(dy - originalDy) > 0.001f);
 
     // Velocity auf 0 wenn geclipt
     var vel = Velocity;
@@ -156,6 +161,10 @@ public abstract class Entity
                   break;
               }
             }
+            else if (def?.IsSlope == true)
+            {
+              continue; // kein AABB für Slopes — Heightfield übernimmt
+            }
             else
             {
               result.Add(new AABB(x, y, z, x + 1, y + 1, z + 1));
@@ -166,5 +175,90 @@ public abstract class Entity
     }
   }
 
+  private static bool ResolveSlope(
+      ref AABB aabb,
+      Func<int, int, int, Block?> getBlock,
+      Func<int, int, int, byte> getMetadata,
+      float width)
+  {
+    float cx = (aabb.MinX + aabb.MaxX) / 2f;
+    float cz = (aabb.MinZ + aabb.MaxZ) / 2f;
+
+    var points = new (float x, float z)[]
+    {
+    (cx, cz),
+    };
+
+    float bestY = float.NegativeInfinity;
+
+    foreach (var (fx, fz) in points)
+    {
+      int bx = (int)MathF.Floor(fx);
+      int bz = (int)MathF.Floor(fz);
+      int footY = (int)MathF.Floor(aabb.MinY + 0.05f);
+
+      for (int by = footY + 1; by >= footY - 2; by--)
+      {
+        var block = getBlock(bx, by, bz);
+        if (!block.HasValue) continue;
+
+        var def = BlockRegistry.Definitions.TryGetValue(block.Value, out var d) ? d : null;
+        if (def?.IsSlope != true) continue;
+
+        var facing = (BlockFacing)getMetadata(bx, by, bz);
+        float lx = Math.Clamp(fx - bx, 0f, 1f);
+        float lz = Math.Clamp(fz - bz, 0f, 1f);
+
+        float h = facing switch
+        {
+          BlockFacing.North => 1f - lz,
+          BlockFacing.South => lz,
+          BlockFacing.West => 1f - lx,
+          BlockFacing.East => lx,
+          _ => 0f
+        };
+
+        float targetY = by + h;
+
+        if (aabb.MinY >= targetY - 0.75f && aabb.MinY <= targetY + 0.45f)
+          bestY = MathF.Max(bestY, targetY);
+      }
+    }
+
+    if (float.IsNegativeInfinity(bestY))
+    {
+      int bx = (int)MathF.Floor(cx);
+      int bz = (int)MathF.Floor(cz);
+      int by = (int)MathF.Floor(aabb.MinY - 0.05f);
+
+      var block = getBlock(bx, by, bz);
+      if (block.HasValue)
+      {
+        var def = BlockRegistry.Definitions.TryGetValue(block.Value, out var d) ? d : null;
+
+        if (def?.IsSlope != true)
+        {
+          float groundY = by + 1f;
+          float deltaGround = groundY - aabb.MinY;
+
+          if (deltaGround <= 0.25f && deltaGround >= -0.8f)
+          {
+            aabb = aabb.Offset(0, deltaGround, 0);
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    float delta = bestY - aabb.MinY;
+
+    if (delta > 0.45f) return false;
+    if (delta < -0.8f) return false;
+
+    aabb = aabb.Offset(0, delta, 0);
+    return true;
+  }
   public abstract void Tick(Func<int, int, int, Block?> getBlock);
 }
