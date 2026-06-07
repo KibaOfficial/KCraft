@@ -1,6 +1,7 @@
 // Copyright (c) 2026 KibaOfficial
 // All rights reserved.
 
+using KCraft.Core;
 using OpenTK.Mathematics;
 
 namespace KCraft.Rendering.Ui;
@@ -60,21 +61,24 @@ public sealed class MainMenuScreen : Screen
     Text.DrawRect(0, 0, screen.X, screen.Y, screen, Bg);
 
     // Titel
-    float titleScale = 4f;
+    float s = UiScale.Scale;
+    float titleScale = 4f * s;
     string titleText = "KCraft";
     float tw = Text.MeasureTextWidth(titleText, titleScale);
-    Text.DrawText(titleText, (screen.X - tw) / 2f, screen.Y / 2f - 150f,
-      screen, scale: titleScale, color: Title);
+    Text.DrawText(titleText, (screen.X - tw) / 2f, screen.Y / 2f - 150f * s, screen, scale: titleScale, color: Title);
 
     // Subtitle
     string sub = "The KibaOfficial Minecraft Clone";
     float sw = Text.MeasureTextWidth(sub);
-    Text.DrawText(sub, (screen.X - sw) / 2f, screen.Y / 2f - 100f,
-      screen, color: Subtitle);
+    Text.DrawText(sub, (screen.X - sw) / 2f, screen.Y / 2f - 100f * s, screen, color: Subtitle);
 
     // Buttons
     foreach (var btn in Buttons)
       btn.Draw(Text, screen, btn.OnMouseClick(mouseX, mouseY));
+
+    // Bottom left corner copyright and version text
+    string ver = $"{KCraftVersion.FullName}";
+    Text.DrawText(ver, 4f, screen.Y - 20f, screen, color: Subtitle);
   }
 
   public override void HandleMouseMove(float mx, float my)

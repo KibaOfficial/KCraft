@@ -74,5 +74,18 @@ public sealed class PlayerInventory
     _slots[8] = Block.StoneStairs;
   }
 
+  public Block[] GetRawSlots()
+  {
+    return (Block[])_slots.Clone();
+  }
+
+  public void LoadRawSlots(Block[] slots)
+  {
+    Array.Copy(
+        slots,
+        _slots,
+        Math.Min(slots.Length, _slots.Length));
+  }
+
   public int SelectedHotbarSlot { get; set; } = 0;
 }

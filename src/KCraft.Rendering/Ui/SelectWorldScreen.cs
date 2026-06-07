@@ -37,7 +37,11 @@ public sealed class SelectWorldScreen : Screen
   private const float EntryGap = 2f;
   private const float EntryPadX = 8f;
   private const float EntryPadY = 6f;
-
+  private float S => UiScale.Scale;
+  private float ListX => _listX * S;
+  private float ListY => _listY * S;
+  private float ListW => _listW * S;
+  private float ListH => _listH * S;
   // ── State ─────────────────────────────────────────────────────────────
   private readonly TextInput _filterInput;
   private List<WorldEntry> _allWorlds = [];
@@ -169,7 +173,12 @@ public sealed class SelectWorldScreen : Screen
     _filterInput.Draw(Text, screen);
 
     // Liste Rahmen + Hintergrund
-    Text.DrawRect(_listX, _listY, _listW, _listH, screen, ListBg);
+    float listX = _listX * scale;
+    float listY = _listY * scale;
+    float listW = _listW * scale;
+    float listH = _listH * scale;
+
+    Text.DrawRect(listX, listY, listW, listH, screen, ListBg);
 
     // Einträge rendern mit Scissor-Clipping
     float entryH = EntryH * scale;
@@ -178,16 +187,16 @@ public sealed class SelectWorldScreen : Screen
 
     GL.Enable(EnableCap.ScissorTest);
     GL.Scissor(
-      (int)_listX,
-      (int)(screen.Y - (_listY + _listH)),
-      (int)_listW,
-      (int)_listH);
+      (int)listX,
+      (int)(screen.Y - (listY + listH)),
+      (int)listW,
+      (int)listH);
 
     for (int i = 0; i < _filtered.Count; i++)
     {
-      float ey = _listY + i * stride - _scrollOffset;
-      if (ey + entryH < _listY) continue;
-      if (ey > _listY + _listH) break;
+      float ey = listY + i * stride - _scrollOffset;
+      if (ey + entryH < listY) continue;
+      if (ey > listY + listH) break;
 
       // Clip zu Listbereich
       float visTop = Math.Max(ey, _listY);
@@ -196,12 +205,12 @@ public sealed class SelectWorldScreen : Screen
 
       var entry = _filtered[i];
       bool isSelected = i == _selectedIndex;
-      bool isHover = mouseX >= _listX && mouseX <= _listX + _listW
-                     && mouseY >= ey && mouseY <= ey + entryH;
+      bool isHover = mouseX >= listX && mouseX <= listX + listW
+            && mouseY >= ey && mouseY <= ey + entryH;
 
       // Entry Background
       var bg = isSelected ? EntrySelected : isHover ? EntryHover : EntryNormal;
-      Text.DrawRect(_listX, ey, _listW, entryH, screen, bg);
+      Text.DrawRect(listX, ey, listW, entryH, screen, bg);
 
       // Selected Border links
       if (isSelected)
@@ -209,7 +218,7 @@ public sealed class SelectWorldScreen : Screen
 
       // Icon Placeholder
       float iconSize = IconSize * scale;
-      float iconX = _listX + EntryPadX * scale;
+      float iconX = listX + EntryPadX * scale;
       float iconY = ey + (entryH - iconSize) / 2f;
       Text.DrawRect(iconX, iconY, iconSize, iconSize, screen, IconBg);
 
@@ -261,9 +270,9 @@ public sealed class SelectWorldScreen : Screen
           : "No worlds match your search.";
       float mw = Text.MeasureTextWidth(msg, scale);
       Text.DrawText(msg,
-          (screen.X - mw) / 2f,
-          _listY + _listH / 2f - 8f * scale,
-          screen, scale: scale, color: SubInfo);
+        (screen.X - mw) / 2f,
+        listY + listH / 2f - 8f * scale,
+        screen, scale: scale, color: SubInfo);
     }
 
     // Buttons
@@ -276,12 +285,17 @@ public sealed class SelectWorldScreen : Screen
   {
     base.HandleClick(mx, my);
 
-    if (mx >= _listX && mx <= _listX + _listW
-     && my >= _listY && my <= _listY + _listH)
+    float listX = ListX;
+    float listY = ListY;
+    float listW = ListW;
+    float listH = ListH;
+
+    if (mx >= listX && mx <= listX + listW
+     && my >= listY && my <= listY + listH)
     {
       float scale = UiScale.Scale;
       float stride = (EntryH + EntryGap) * scale;
-      int idx = (int)((my - _listY + _scrollOffset) / stride);
+      int idx = (int)((my - listY + _scrollOffset) / stride);
 
       if (idx >= 0 && idx < _filtered.Count)
       {

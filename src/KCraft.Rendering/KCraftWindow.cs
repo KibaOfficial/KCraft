@@ -643,6 +643,8 @@ public sealed class KCraftWindow : GameWindow
       GameMode = (int)_currentGameMode,
       TotalTicks = _ticker.Time.TotalTicks,
       LastPlayed = DateTime.Now,
+      InventorySlots = _playerInventory.GetRawSlots(),
+      SelectedHotbarSlot = _playerInventory.SelectedHotbarSlot,
     };
 
     var chunks = _world.ChunkMeshes
@@ -775,6 +777,12 @@ public sealed class KCraftWindow : GameWindow
     _currentGameMode = (GameMode)data.GameMode;
     ApplyGameMode(_currentGameMode);
 
+    _playerInventory.LoadRawSlots(data.InventorySlots);
+    _playerInventory.SelectedHotbarSlot = data.SelectedHotbarSlot;
+    _hotbar.SelectedSlot = data.SelectedHotbarSlot;
+
+    _ticker.Time.SetTicks(data.TotalTicks);
+
     // 1. Erst gespeicherte Chunk-Daten laden
     foreach (var ((cx, cz), rawData) in chunks)
     {
@@ -817,8 +825,16 @@ public sealed class KCraftWindow : GameWindow
     {
       _ticker.Player!.Position = new Vector3(data.PlayerX, data.PlayerY, data.PlayerZ);
       _camera.SetRotation(data.CameraYaw, data.CameraPitch);
+
       _currentGameMode = (GameMode)data.GameMode;
       ApplyGameMode(_currentGameMode);
+
+      _playerInventory.LoadRawSlots(data.InventorySlots);
+      _playerInventory.SelectedHotbarSlot = data.SelectedHotbarSlot;
+      _hotbar.SelectedSlot = data.SelectedHotbarSlot;
+
+      _ticker.Time.SetTicks(data.TotalTicks);
+
       _pendingSavedChunks = chunks;
       _pendingSavedMetadata = metadata;
     }
@@ -877,7 +893,7 @@ public sealed class KCraftWindow : GameWindow
 
   private void UpdateDiscordPresence()
   {
-    string details = "KCraft";
+    string details = KCraftVersion.FullName;
     string state = _ui.State switch
     {
       GameState.MainMenu => "In the Main Menu",
@@ -895,9 +911,8 @@ public sealed class KCraftWindow : GameWindow
     };
 
     if (_ui.State == GameState.Playing)
-      details = $"{_currentGameMode} Mode";
+      details = $"{KCraftVersion.FullName} - {_currentGameMode} Mode";
 
-    Console.WriteLine($"Discord Presence Update: {state}, {details}");
     _discord.SetActivity(state, details);
   }
 }

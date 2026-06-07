@@ -48,7 +48,16 @@ public sealed class TextInput
 
   // ── Hit Test ──────────────────────────────────────────────────────────
   public bool Contains(float mx, float my)
-      => mx >= X && mx <= X + Width && my >= Y && my <= Y + Height;
+  {
+    float s = UiScale.Scale;
+    float sx = X * s;
+    float sy = Y * s;
+    float sw = Width * s;
+    float sh = Height * s;
+
+    return mx >= sx && mx <= sx + sw
+        && my >= sy && my <= sy + sh;
+  }
 
   public void HandleClick(float mx, float my)
   {
@@ -108,30 +117,38 @@ public sealed class TextInput
     var bg = IsDisabled ? BgDisabled : IsFocused ? BgFocused : BgNormal;
     var border2 = IsFocused ? BorderFocused : BorderNormal;
 
+    float sx = X * scale;
+    float sy = Y * scale;
+    float sw = Width * scale;
+    float sh = Height * scale;
+
     // Border
-    text.DrawRect(X - border, Y - border,
-        Width + border * 2, Height + border * 2, screen, border2);
+    text.DrawRect(sx - border, sy - border,
+        sw + border * 2, sh + border * 2, screen, border2);
 
     // Background
-    text.DrawRect(X, Y, Width, Height, screen, bg);
+    text.DrawRect(sx, sy, sw, sh, screen, bg);
 
     // Text oder Placeholder
     bool hasValue = Value.Length > 0;
-    float availableWidth = Math.Max(0f, Width - pad * 2f - 4f);
+    float availableWidth = Math.Max(0f, sw - pad * 2f - 4f);
+
     string display = hasValue
       ? FitTextFromEnd(text, Value, scale, availableWidth)
       : FitTextFromStart(text, Placeholder, scale, availableWidth);
+
     var col = hasValue ? TextColor : PlaceholderColor;
 
-    float textY = Y + (Height - 8f * scale) / 2f;
-    text.DrawText(display, X + pad, textY, screen, scale: scale, color: col);
+    float textY = sy + (sh - 8f * scale) / 2f;
+    text.DrawText(display, sx + pad, textY, screen, scale: scale, color: col);
 
     // Cursor
     if (IsFocused && _cursorVisible)
     {
-      float cursorX = X + pad + (hasValue
+      float cursorX = sx + pad + (hasValue
           ? text.MeasureTextWidth(display, scale)
           : 0f);
+
       float cursorH = 8f * scale;
       text.DrawRect(cursorX, textY, border, cursorH, screen, CursorColor);
     }

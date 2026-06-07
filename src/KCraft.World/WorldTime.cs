@@ -61,4 +61,9 @@ public sealed class WorldTime
       return $"{minutes / 60:D2}:{minutes % 60:D2}";
     }
   }
+
+  public void SetTicks(long ticks)
+  {
+    TotalTicks = ticks;
+  }
 }

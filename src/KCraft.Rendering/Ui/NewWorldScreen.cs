@@ -93,34 +93,44 @@ public sealed class NewWorldScreen : Screen
 
   public override void Draw(Vector2 screen, float mouseX, float mouseY)
   {
-    float scale = UiScale.Scale;
+    float s = UiScale.Scale;
+
+    // gleiche logical Werte wie Layout()
     float pw = 380f;
     float ph = 300f;
-    float px = (screen.X - pw) / 2f;
-    float py = (screen.Y - ph) / 2f;
+    float px = (screen.X / s - pw) / 2f;
+    float py = (screen.Y / s - ph) / 2f;
     float ix = px + 20f;
 
+    // physical Werte fürs manuelle Zeichnen
+    float spw = pw * s;
+    float sph = ph * s;
+    float spx = px * s;
+    float spy = py * s;
+    float six = ix * s;
+
     Text.DrawRect(0, 0, screen.X, screen.Y, screen, Bg);
-    Text.DrawRect(px, py, pw, ph, screen, Panel);
+    Text.DrawRect(spx, spy, spw, sph, screen, Panel);
 
-    // Titel
     string t = "Create New World";
-    float tw = Text.MeasureTextWidth(t, scale * 1.5f);
-    Text.DrawText(t, px + (pw - tw) / 2f, py + 16f, screen, scale: scale * 1.5f, color: Title);
+    float titleScale = s * 1.5f;
+    float tw = Text.MeasureTextWidth(t, titleScale);
+    Text.DrawText(t, spx + (spw - tw) / 2f, spy + 16f * s,
+        screen, scale: titleScale, color: Title);
 
-    // Labels
-    Text.DrawText("World Name", ix, py + 58f, screen, scale: scale, color: Label);
+    Text.DrawText("World Name", six, spy + 58f * s,
+        screen, scale: s, color: Label);
     _nameInput.Draw(Text, screen);
 
-    Text.DrawText("Seed", ix, py + 120f, screen, scale: scale, color: Label);
+    Text.DrawText("Seed", six, spy + 120f * s,
+        screen, scale: s, color: Label);
     _seedInput.Draw(Text, screen);
 
-    // Error
     if (!string.IsNullOrEmpty(_errorMessage))
     {
-      float ew = Text.MeasureTextWidth(_errorMessage, scale);
-      Text.DrawText(_errorMessage, px + (pw - ew) / 2f, py + 176f,
-          screen, scale: scale, color: ErrorCol);
+      float ew = Text.MeasureTextWidth(_errorMessage, s);
+      Text.DrawText(_errorMessage, spx + (spw - ew) / 2f, spy + 176f * s,
+          screen, scale: s, color: ErrorCol);
     }
 
     foreach (var btn in Buttons)
