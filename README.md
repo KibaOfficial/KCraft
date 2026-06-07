@@ -15,7 +15,7 @@
 [![OpenGL](https://img.shields.io/badge/OpenGL-4.6-5586A4?style=flat-square&logo=opengl&logoColor=white)](https://www.opengl.org/)
 [![OpenTK](https://img.shields.io/badge/OpenTK-4.9.4-1E88E5?style=flat-square)](https://opentk.net/)
 [![Tests](https://img.shields.io/badge/Tests-50%20passing-brightgreen?style=flat-square)](./tests/)
-[![Version](https://img.shields.io/badge/Version-v0.7.0-orange?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-v1.0.0-brightgreen?style=flat-square)]()
 [![Author](https://img.shields.io/badge/Author-KibaOfficial-blueviolet?style=flat-square&logo=github)](https://github.com/KibaOfficial)
 
 </div>
@@ -30,8 +30,8 @@ KCraft is a Minecraft clone written **completely from scratch** — no Unity, no
 
 ## Screenshots
 
-| Main Menu | In-Game + Debug Overlay |
-| --------- | ----------------------- |
+| Main Menu                                                                | In-Game + Debug Overlay                                                           |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | ![KCraft menu](<docs/screenshots/day2/Screenshot 2026-05-31 161338.png>) | ![KCraft debug overlay](<docs/screenshots/day2/Screenshot 2026-05-31 161216.png>) |
 
 More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
@@ -61,15 +61,17 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **Player Entity** — AABB collision, gravity, jump, sprint, sneak
 - **Swimming** — reduced gravity + speed in water, swim up with Space
 - **Gamemodes** — Survival, Creative, Spectator
-- **Fly Mode** — Creative-style free flight
+- **Fly Mode** — Creative-style free flight with proper collision
 - **Edge snapping** — can't fall off edges while sneaking
 - **Block Breaking** — left click, instant, chunk mesh rebuild
 - **Block Placing** — right click with player collision check
 - **Block Pick** — middle click copies targeted block to hotbar slot
 - **Block Facing** — directional blocks (stairs, slopes) face toward the player on placement
 - **Stair Collision** — dual-AABB stair geometry with correct step-up (0.5f lower half)
+- **Slope Collision** — heightfield-based smooth slope traversal
 - **World Selection** — choose existing saves
 - **World Creation** — custom world names and seeds
+- **Inventory persistence** — hotbar and inventory saved with world
 
 ### 🎨 Rendering
 
@@ -96,7 +98,7 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - **Grid tile extraction** — CTM spritesheet tile sampling (Texture2D)
 - **Crosshair renderer** — lightweight 2D reticle
 - **Block highlight renderer** — wireframe on targeted solid blocks (no highlight for fluids)
-- **Block icon renderer** — isometric 2D block icons in hotbar (MC face brightness)
+- **Block icon renderer** — real 3D mini-renderer per slot (Orthographic, correct L/wedge shape for Stairs/Slopes)
 - **Bitmap font renderer** — Minecraft-style `ascii.png` atlas with proportional metrics
 - **2D UI renderer** — `DrawRect` + `DrawText` for all overlays and menus
 
@@ -114,7 +116,7 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 
 ### 🎒 Inventory & UI
 
-- **Player Inventory** — 36 slots (0–8 hotbar, 9–35 main)
+- **Player Inventory** — 36 slots (0–8 hotbar, 9–35 main), saved with world
 - **Survival Inventory Screen** — drag & drop swap, 3×9 main grid + hotbar row
 - **Creative Inventory Screen** — tabbed (Blocks, Wood, Natural, Building, Inv), scrollable item grid, click-to-hotbar
 - **HotbarRenderer** — driven by PlayerInventory
@@ -136,6 +138,7 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 - `GameState` machine — MainMenu / Playing / Paused / Inventory / CreativeInventory / Options / Loading / Benchmark / BenchmarkResult
 - MC-accurate button colours — Normal / Hover (yellow text) / Disabled
 - `Screen` base class with `Layout` / `Draw` / `HandleClick`
+- UI scale system (2×–4×)
 
 ### 🎮 Discord Integration
 
@@ -188,27 +191,28 @@ More development screenshots live in [`docs/screenshots`](./docs/screenshots/).
 
 ## Benchmark Results
 
-| Hardware | Version | Score | Avg FPS | Recommended Radius |
-| -------- | ------- | ----- | ------- | ------------------ |
-| RTX 3060 + Ryzen 3800X | v0.3.0 | 5696 | 58 | 12 |
-| RTX 3060 + Ryzen 3800X | v0.5.0 | 4650 | 51 | 8 |
-| GTX 1660 Ti + i7-8750H | v0.5.0 | 4954 | 55 | 12 |
-| GTX 1060 + Intel i7 | v0.5.0 | 4403 | 45 | 12 |
-| RTX 3060 + Ryzen 3800X | v0.6.0 | 5986 | 65 | 12 |
-| RTX 3060 + Ryzen 3800X | v0.7.0 | 5949 | 60 | 4 |
+| Hardware               | Version | Score | Avg FPS | Recommended Radius |
+| ---------------------- | ------- | ----- | ------- | ------------------ |
+| RTX 3060 + Ryzen 3800X | v0.3.0  | 5696  | 58      | 12                 |
+| RTX 3060 + Ryzen 3800X | v0.5.0  | 4650  | 51      | 8                  |
+| GTX 1660 Ti + i7-8750H | v0.5.0  | 4954  | 55      | 12                 |
+| GTX 1060 + Intel i7    | v0.5.0  | 4403  | 45      | 12                 |
+| RTX 3060 + Ryzen 3800X | v0.6.0  | 5986  | 65      | 12                 |
+| RTX 3060 + Ryzen 3800X | v0.7.0  | 5949  | 60      | 4                  |
+| RTX 3060 + Ryzen 3800X | v1.0.0  | 5824  | 60      | 4                  |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-| ----- | ---------- |
-| Language | C# 13 / .NET 10 |
-| Windowing | OpenTK 4.9.4 (GLFW) |
-| Graphics | OpenGL 4.6 |
-| Image Loading | StbImageSharp |
-| Noise | FastNoiseLite (MIT, embedded) |
-| Testing | xUnit (50 tests, all passing) |
+| Layer         | Technology                    |
+| ------------- | ----------------------------- |
+| Language      | C# 13 / .NET 10               |
+| Windowing     | OpenTK 4.9.4 (GLFW)           |
+| Graphics      | OpenGL 4.6                    |
+| Image Loading | StbImageSharp                 |
+| Noise         | FastNoiseLite (MIT, embedded) |
+| Testing       | xUnit (50 tests, all passing) |
 
 ---
 
@@ -295,10 +299,10 @@ dotnet test
 ### Package
 
 ```bash
-.\build.ps1 -Version "0.7.0"
+.\build.ps1 -Version "1.0.0"
 ```
 
-Produces `installer/KCraft-v0.7.0-Setup.exe` and `installer/KCraft-v0.7.0-linux-x64.tar.gz`.
+Produces `installer/KCraft-v1.0.0-Setup.exe` and `installer/KCraft-v1.0.0-linux-x64.tar.gz`.
 
 ---
 
@@ -312,30 +316,31 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 
 ## Controls
 
-| Input | Action |
-| ----- | ------ |
-| `W A S D` | Move |
-| `Space` | Jump / Swim up |
-| `Left Shift` | Sneak / Swim down |
-| `Left Ctrl` | Sprint |
-| `Left Click` | Break block |
-| `Right Click` | Place block |
-| `Middle Click` | Pick block |
-| `Scroll / 1–9` | Select hotbar slot |
-| `E` | Open Inventory / Creative Inventory |
-| `Mouse` | Look around |
-| `Escape` | Pause / Close inventory / release cursor |
-| `F3` | Toggle debug overlay |
-| `F3 + G` | Toggle chunk borders |
-| `F3 + N` | Toggle free cam |
-| `F3 + B` | Toggle hitboxes |
-| `F3 + F4` | Cycle gamemode |
+| Input          | Action                                   |
+| -------------- | ---------------------------------------- |
+| `W A S D`      | Move                                     |
+| `Space`        | Jump / Swim up                           |
+| `Left Shift`   | Sneak / Swim down                        |
+| `Left Ctrl`    | Sprint                                   |
+| `Left Click`   | Break block                              |
+| `Right Click`  | Place block                              |
+| `Middle Click` | Pick block                               |
+| `Scroll / 1–9` | Select hotbar slot                       |
+| `E`            | Open Inventory / Creative Inventory      |
+| `Mouse`        | Look around                              |
+| `Escape`       | Pause / Close inventory / release cursor |
+| `F3`           | Toggle debug overlay                     |
+| `F3 + G`       | Toggle chunk borders                     |
+| `F3 + N`       | Toggle free cam                          |
+| `F3 + B`       | Toggle hitboxes                          |
+| `F3 + F4`      | Cycle gamemode                           |
 
 ---
 
 ## Roadmap
 
 ### 🌍 World
+
 - [x] Water generation + physics
 - [x] Beaches
 - [x] Biomes (Plains, Beach, Ocean)
@@ -344,31 +349,38 @@ macOS and iOS builds are intentionally not planned — KCraft is a learning-focu
 - [ ] More tree variants
 
 ### 🎮 Gameplay
+
 - [x] Swimming physics
 - [x] Underwater effect (blue overlay)
 - [x] Block facing system
 - [x] Stair collision matching geometry
+- [x] Slope collision (heightfield)
 - [x] Inventory system
+- [x] Inventory persistence
 - [ ] Item system
 - [ ] Crafting system
 - [ ] Survival progression
 
 ### 🎨 Rendering
+
 - [x] Frustum culling
 - [x] Loading screen with chunk colormap
 - [x] Connected textures (CTM) for glass
 - [x] Face brightness (directional lighting)
 - [x] Clouds
 - [x] Stars and moon
+- [x] 3D block icons in inventory
 - [ ] Ambient occlusion
 - [ ] Smooth lighting
 
 ### 🌐 Multiplayer
+
 - [ ] Networking layer
 - [ ] P2P multiplayer
 - [ ] Dedicated server support
 
 ### ⚡ Performance
+
 - [x] Dynamic chunk loading
 - [x] Frustum culling
 - [x] Benchmark suite
@@ -391,7 +403,7 @@ Copyright © 2026 KibaOfficial. All rights reserved.
 
 **Noise**: [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) by Auburn — MIT License.
 
-<!-- **Code Signing**: Certificate provided by [SignPath Foundation](https://signpath.org/) — 
+<!-- **Code Signing**: Certificate provided by [SignPath Foundation](https://signpath.org/) —
 free code signing for open source projects. -->
 
 ---
