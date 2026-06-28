@@ -42,20 +42,20 @@ Write-Host " $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor DarkGra
 Write-Host ""
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
-Write-Title "[ 1 / 5 ]  Clean"
+Write-Title "[ 1 / 6 ]  Clean"
 Invoke-Step "Removing old publish output" {
     if (Test-Path "publish") { Remove-Item "publish" -Recurse -Force }
     if (!(Test-Path $InstallerDir)) { New-Item -ItemType Directory -Path $InstallerDir | Out-Null }
 }
 
 # ── Windows Publish ───────────────────────────────────────────────────────────
-Write-Title "[ 2 / 5 ]  Publish  Windows x64"
+Write-Title "[ 2 / 6 ]  Publish  Windows x64"
 Invoke-Step "dotnet publish win-x64" {
     dotnet publish $AppProject -c Release -r win-x64 --self-contained true -o $WinPublishDir /p:Version=$Version 2>&1 | Out-Null
 }
 
 # ── Windows Installer ─────────────────────────────────────────────────────────
-Write-Title "[ 3 / 5 ]  Installer  Windows (Inno Setup)"
+Write-Title "[ 3 / 6 ]  Installer  Windows (Inno Setup)"
 if (!(Test-Path $InnoCompiler)) {
     Write-Host "  .. Inno Setup not found at '$InnoCompiler' — skipping installer" -ForegroundColor DarkYellow
 } else {
@@ -65,13 +65,23 @@ if (!(Test-Path $InnoCompiler)) {
 }
 
 # ── Linux Publish ─────────────────────────────────────────────────────────────
-Write-Title "[ 4 / 5 ]  Publish  Linux x64"
+Write-Title "[ 4 / 6 ]  Publish  Linux x64"
 Invoke-Step "dotnet publish linux-x64" {
     dotnet publish $AppProject -c Release -r linux-x64 --self-contained true -o $LinuxPublishDir /p:Version=$Version 2>&1 | Out-Null
 }
 
 # ── Linux tar.gz ──────────────────────────────────────────────────────────────
-Write-Title "[ 5 / 5 ]  Archive  Linux tar.gz"
+Write-Title "[ 5 / 6 ]  Copy  Runtime Assets"
+Invoke-Step "Copy runtime assets" {
+    New-Item -ItemType Directory -Force `
+        -Path (Join-Path $LinuxPublishDir "assets") | Out-Null
+
+    Copy-Item "assets/dev" `
+        -Destination (Join-Path $LinuxPublishDir "assets/dev") `
+        -Recurse -Force
+}
+
+Write-Title "[ 6 / 6 ]  Archive  Linux tar.gz"
 $linuxTarPath = Join-Path $InstallerDir $LinuxTarName
 Invoke-Step "tar -czf $LinuxTarName" {
     if (Test-Path $linuxTarPath) { Remove-Item $linuxTarPath -Force }
