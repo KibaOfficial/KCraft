@@ -36,7 +36,6 @@ public sealed class CreativeInventoryScreen : Screen
   private float _tabH;
   private Vector2 _screen;
   private float _mouseX, _mouseY;
-  private float MouseYOffset => _slotSize + _padding;
 
   // ── Drag State ────────────────────────────────────────────────────────
   private Block _heldBlock = Block.Air;
@@ -115,7 +114,7 @@ public sealed class CreativeInventoryScreen : Screen
   public override void Draw(Vector2 screen, float mouseX, float mouseY)
   {
     _mouseX = mouseX;
-    _mouseY = SlotMouseY(mouseY);
+    _mouseY = mouseY;
 
     float s = UiScale.Scale;
     float panelW = CalcPanelW();
@@ -139,8 +138,8 @@ public sealed class CreativeInventoryScreen : Screen
       float tx = tabsStartX + i * (tabW + _padding);
       bool active = i == _activeTab;
       bool hover = mouseX >= tx && mouseX <= tx + tabW
-          && SlotMouseY(mouseY) >= _panelY
-          && SlotMouseY(mouseY) <= _panelY + _tabH;
+        && mouseY >= _panelY
+        && mouseY <= _panelY + _tabH;
 
       Text.DrawRect(
         tx,
@@ -188,7 +187,7 @@ public sealed class CreativeInventoryScreen : Screen
       _icon.Draw(
         _heldBlock,
         mouseX - _slotSize / 2f,
-        SlotMouseY(mouseY) - _slotSize / 2f,
+        mouseY - _slotSize / 2f,
         _slotSize,
         screen,
         _textures);
@@ -306,7 +305,7 @@ public sealed class CreativeInventoryScreen : Screen
   {
     float tabW = (_slotSize + _padding) * 2f;
     float tabsStartX = _panelX + _padding + 4f;
-    float hitMy = SlotMouseY(my);
+    float hitMy = my;
 
     // Tabs
     for (int i = 0; i < _tabs.Count; i++)
@@ -476,8 +475,6 @@ public sealed class CreativeInventoryScreen : Screen
       OnClose?.Invoke();
     }
   }
-
-  private float SlotMouseY(float my) => my + _slotSize + _padding;
 
   public override void Update(float deltaTime) { }
 
