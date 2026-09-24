@@ -27,10 +27,7 @@ public sealed class KCraftWindow : GameWindow
   private Camera _camera = null!;
   private GameModeSwitcher _gameModeSwitcher = null!;
   private GameMode _currentGameMode = GameMode.Survival;
-  private string _pendingWorldName = "";
-  private string _currentWorldName = "default";
-  private Dictionary<(int cx, int cz), byte[]>? _pendingSavedChunks;
-  private Dictionary<(int cx, int cz), byte[]>? _pendingSavedMetadata;
+  private readonly WorldSession _worldSession = new();
   // ── Assets ────────────────────────────────────────────────────────────
   private TextureManager _textureManager = null!;
   // ── Renderers ─────────────────────────────────────────────────────────
@@ -205,28 +202,7 @@ public sealed class KCraftWindow : GameWindow
 
       if (_ui.Loading.IsReady)
       {
-        // Gespeicherte Chunks laden wenn vorhanden
-        if (_pendingSavedChunks != null)
-        {
-          foreach (var ((cx, cz), rawData) in _pendingSavedChunks)
-          {
-            for (int i = 0; i < _world.ChunkMeshes.Count; i++)
-            {
-              var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
-              if (chunkPos.X != cx || chunkPos.Z != cz) continue;
-              chunk.LoadRawBlocks(rawData);
-              if (_pendingSavedMetadata != null && _pendingSavedMetadata.TryGetValue((cx, cz), out var metaData))
-                chunk.LoadRawMetadata(metaData);
-              var newMesh = new ChunkMesh();
-              newMesh.Build(chunk, _world.GetBlock, cx, cz, _world.GetWorldFluid);
-              mesh.Dispose();
-              _world.ChunkMeshes[i] = (newMesh, chunk, chunkPos);
-              break;
-            }
-          }
-          _pendingSavedChunks = null;
-          _pendingSavedMetadata = null;
-        }
+        _worldSession.ApplyPendingChunks(_world);
 
         _ui.SetState(GameState.Playing);
         CursorState = CursorState.Grabbed;
@@ -555,28 +531,12 @@ public sealed class KCraftWindow : GameWindow
 
   private void SaveWorld()
   {
-    if (_ticker.Player == null) return;
-
-    var data = new WorldSaveData
-    {
-      WorldName = "default", // später aus New World Screen
-      Seed = _world.Seed,
-      PlayerX = _ticker.Player.Position.X,
-      PlayerY = _ticker.Player.Position.Y,
-      PlayerZ = _ticker.Player.Position.Z,
-      CameraYaw = _camera.Yaw,
-      CameraPitch = _camera.Pitch,
-      GameMode = (int)_currentGameMode,
-      TotalTicks = _ticker.Time.TotalTicks,
-      LastPlayed = DateTime.Now,
-      InventorySlots = _playerInventory.GetRawSlots(),
-      SelectedHotbarSlot = _playerInventory.SelectedHotbarSlot,
-    };
-
-    var chunks = _world.ChunkMeshes
-        .Select(c => (c.chunk, c.chunkPos.X, c.chunkPos.Z));
-
-    WorldSaveManager.Save(_currentWorldName, data, chunks);
+    _worldSession.Save(
+      _world,
+      _ticker,
+      _camera,
+      _playerInventory,
+      _currentGameMode);
   }
 
   // ── Init Helpers ──────────────────────────────────────────────────────
@@ -664,7 +624,6 @@ public sealed class KCraftWindow : GameWindow
 
   private void LoadWorld(string name = "default")
   {
-    _currentWorldName = name;
     var (data, chunks, metadata) = WorldSaveManager.Load(name);
     if (data == null) return;
 
@@ -713,10 +672,10 @@ public sealed class KCraftWindow : GameWindow
 
   private void LoadAndStartWorld(string name)
   {
-    _pendingWorldName = name;
-    _currentWorldName = name;
-
-    var (data, chunks, metadata) = WorldSaveManager.Load(name);
+    var data = _worldSession.LoadSave(
+      name,
+      out var chunks,
+      out var metadata);
 
     // Welt neu erstellen
     _world.Dispose();
@@ -738,8 +697,9 @@ public sealed class KCraftWindow : GameWindow
 
       _ticker.Time.SetTicks(data.TotalTicks);
 
-      _pendingSavedChunks = chunks;
-      _pendingSavedMetadata = metadata;
+      _worldSession.SetPendingChunks(
+        chunks,
+        metadata);
     }
     else
     {
@@ -758,7 +718,8 @@ public sealed class KCraftWindow : GameWindow
   }
   private void CreateAndStartWorld(string name, int? seed)
   {
-    _currentWorldName = name;
+    _worldSession.SetCurrentWorld(name);
+
     int actualSeed = seed ?? Random.Shared.Next();
 
     _world.Dispose();
@@ -800,12 +761,12 @@ public sealed class KCraftWindow : GameWindow
     string state = _ui.State switch
     {
       GameState.MainMenu => "In the Main Menu",
-      GameState.Playing => $"{_currentGameMode} | {_currentWorldName}",
+      GameState.Playing => $"{_currentGameMode} | {_worldSession.CurrentWorldName}",
       GameState.Paused => "Game Paused",
-      GameState.Inventory => $"In Inventory | {_currentWorldName}",
-      GameState.CreativeInventory => $"Creative Inventory | {_currentWorldName}",
+      GameState.Inventory => $"In Inventory | {_worldSession.CurrentWorldName}",
+      GameState.CreativeInventory => $"Creative Inventory | {_worldSession.CurrentWorldName}",
       GameState.Options => "Changing Settings",
-      GameState.Loading => $"Loading: {_currentWorldName}",
+      GameState.Loading => $"Loading: {_worldSession.CurrentWorldName}",
       GameState.Benchmark => "Running Benchmark",
       GameState.SelectWorld => "Selecting World",
       GameState.NewWorld => "Creating World",
