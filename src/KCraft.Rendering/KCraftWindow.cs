@@ -47,9 +47,7 @@ public sealed class KCraftWindow : GameWindow
   private Vector2 _mousePosition;
   private const float UiMouseYOffset = 0f;
   private bool _firstMouse = true;
-  private bool _freeCam = false;
-  private float _jumpPressTimer = 0f;
-  private bool _jumpPressedLastFrame = false;
+  private readonly GameplayController _gameplay = new();
   // ── Fields ────────────────────────────────────────────────────────────
   private readonly PlayerInventory _playerInventory = new();
   private readonly DiscordRpc _discord = new();
@@ -121,39 +119,12 @@ public sealed class KCraftWindow : GameWindow
     {
       _ui.Update((float)args.Time);
       _clouds.Update((float)args.Time);
-      bool jumpNow = KeyboardState.IsKeyDown(Keys.Space);
-      if (jumpNow && !_jumpPressedLastFrame)
-      {
-        if (_ticker.Player is { IsInWater: true })
-        {
-          _jumpPressTimer = 0f;
-          _ticker.Player.Jump();
-        }
-        else if (_jumpPressTimer > 0f)
-        {
-          _ticker.Player?.ToggleFly();
-          _jumpPressTimer = 0f;
-        }
-        else
-        {
-          _jumpPressTimer = 0.3f;
-          _ticker.Player?.Jump(); // nur springen, kein Fly toggle
-        }
-      }
-      if (_jumpPressTimer > 0f)
-        _jumpPressTimer -= (float)args.Time;
 
-      _jumpPressedLastFrame = jumpNow;
-      if (_freeCam)
-      {
-        // alter Flug-Modus
-        _camera.ProcessKeyboard(KeyboardState, (float)args.Time);
-      }
-      else
-      {
-        // Player Input + Tick
-        _ticker.Player?.ProcessInput(KeyboardState, _camera.Yaw);
-      }
+      _gameplay.Update(
+        (float)args.Time,
+        KeyboardState,
+        _ticker,
+        _camera);
 
       _ticker.Update((float)args.Time);
       _world.WaterTick();
@@ -164,7 +135,7 @@ public sealed class KCraftWindow : GameWindow
             loadRadius: GameSettings.RenderDistance,
             unloadRadius: GameSettings.RenderDistance + 3);
 
-      if (!_freeCam && _ticker.Player != null)
+      if (!_gameplay.FreeCam && _ticker.Player != null)
       {
         float alpha = _ticker.Accumulator / (1f / WorldTime.TicksPerSecond);
         alpha = Math.Clamp(alpha, 0f, 1f);
@@ -260,7 +231,7 @@ public sealed class KCraftWindow : GameWindow
 
         _chunkBorders.Draw(_camera, view, projection);
 
-        if (_ticker.Player != null && !_freeCam)
+        if (_ticker.Player != null && !_gameplay.FreeCam)
           _hitbox.Draw(_ticker.Player.BoundingBox, view, projection);
       }
 
@@ -288,7 +259,7 @@ public sealed class KCraftWindow : GameWindow
           _chunkRenderer.VisibleChunkCount,
           _lastHit,
           _ticker.Time,
-          _freeCam,
+          _gameplay.FreeCam,
           _hitbox.Visible);
         _gameModeSwitcher.Draw(new Vector2(Size.X, Size.Y));
         _crosshair.Draw(new Vector2(Size.X, Size.Y));
@@ -359,10 +330,9 @@ public sealed class KCraftWindow : GameWindow
       case Keys.N when stateBeforeKey == GameState.Playing:
         if (KeyboardState.IsKeyDown(Keys.F3))
         {
-          _freeCam = !_freeCam;
-          // Beim Wechsel zurück: Kamera auf Player-Eye snappen
-          if (!_freeCam && _ticker.Player != null)
-            _camera.Position = _ticker.Player.EyePosition;
+          _gameplay.ToggleFreeCam(
+            _camera,
+            _ticker.Player);
         }
         break;
       case Keys.G when stateBeforeKey == GameState.Playing:
