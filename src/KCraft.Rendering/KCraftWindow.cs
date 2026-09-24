@@ -44,6 +44,7 @@ public sealed class KCraftWindow : GameWindow
   private HitboxRenderer _hitbox = null!;
   private BenchmarkSession? _benchmark;
   private StarRenderer _stars = null!;
+  private ChunkRenderer _chunkRenderer = null!;
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
   private Vector2 _mousePosition;
@@ -53,9 +54,6 @@ public sealed class KCraftWindow : GameWindow
   private float _jumpPressTimer = 0f;
   private bool _jumpPressedLastFrame = false;
   // ── Fields ────────────────────────────────────────────────────────────
-  private readonly FrustumCuller _frustum = new();
-  private int _visibleChunks;
-  private readonly List<(ChunkMesh mesh, Chunk chunk, Vector3i chunkPos)> _visibleList = [];
   private readonly PlayerInventory _playerInventory = new();
   private readonly DiscordRpc _discord = new();
   private CloudRenderer _clouds = null!;
@@ -299,7 +297,12 @@ public sealed class KCraftWindow : GameWindow
       _clouds.Draw(view, projection, _camera.Position, _ticker.Time.SkyLight);
 
       // 3D World
-      DrawChunks(view, projection);
+      _chunkRenderer.Draw(
+        _world,
+        _textureManager,
+        _ticker.Time,
+        view,
+        projection);
 
       // Ray-Cast + Highlight — nur im Playing State
       if (_ui.State == GameState.Playing || _ui.State == GameState.Paused)
@@ -335,8 +338,16 @@ public sealed class KCraftWindow : GameWindow
           _ui.State == GameState.Inventory ||
           _ui.State == GameState.CreativeInventory)
       {
-        _debug.Draw(new Vector2(Size.X, Size.Y), _camera, 1.0 / args.Time,
-          _world.ChunkCount, _visibleChunks, _lastHit, _ticker.Time, _freeCam, _hitbox.Visible);
+        _debug.Draw(
+          new Vector2(Size.X, Size.Y),
+          _camera,
+          1.0 / args.Time,
+          _world.ChunkCount,
+          _chunkRenderer.VisibleChunkCount,
+          _lastHit,
+          _ticker.Time,
+          _freeCam,
+          _hitbox.Visible);
         _gameModeSwitcher.Draw(new Vector2(Size.X, Size.Y));
         _crosshair.Draw(new Vector2(Size.X, Size.Y));
         _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
@@ -358,87 +369,6 @@ public sealed class KCraftWindow : GameWindow
     _ui.Draw(new Vector2(Size.X, Size.Y), _mousePosition.X, _mousePosition.Y);
     SwapBuffers();
   }
-
-  private void DrawChunks(Matrix4 view, Matrix4 projection)
-  {
-    _worldShader.Use();
-    GL.UniformMatrix4(_worldShader.ViewLocation, false, ref view);
-    GL.UniformMatrix4(_worldShader.ProjectionLocation, false, ref projection);
-
-    float skyLight = _ticker.Time.SkyLight;
-    float ambient = Math.Clamp(skyLight * (1.0f - 0.267f) + 0.267f, 0.267f, 1.0f);
-
-    GL.Uniform1(_worldShader.AmbientLocation, ambient);
-
-    // Frustum updaten + sichtbare Chunks sammeln (kein Alloc pro Frame)
-    _frustum.Update(view * projection);
-    _visibleList.Clear();
-    foreach (var item in _world.ChunkMeshes)
-      if (_frustum.IsChunkVisible(item.chunkPos.X, item.chunkPos.Z))
-        _visibleList.Add(item);
-    _visibleChunks = _visibleList.Count;
-
-    // ── Pass 1: Solide Blöcke ─────────────────────────────────────────
-    GL.Uniform1(_worldShader.AlphaLocation, 1.0f);
-
-    foreach (var (mesh, _, chunkPos) in _visibleList)
-    {
-      var model = Matrix4.CreateTranslation(
-        new Vector3(
-          chunkPos.X * Chunk.Width,
-          0,
-          chunkPos.Z * Chunk.Depth));
-
-      GL.UniformMatrix4(
-        _worldShader.ModelLocation,
-        false,
-        ref model);
-
-      mesh.Draw(
-        _textureManager,
-        _worldShader.TextureLocation,
-        _worldShader.TintLocation);
-    }
-
-    // ── Pass 2: Wasser ────────────────────────────────────────────────
-    GL.Enable(EnableCap.Blend);
-    GL.BlendFunc(
-      BlendingFactor.SrcAlpha,
-      BlendingFactor.OneMinusSrcAlpha);
-
-    GL.DepthMask(false);
-
-    GL.Uniform1(
-      _worldShader.AlphaLocation,
-      0.8f);
-
-    foreach (var (mesh, _, chunkPos) in _visibleList)
-    {
-      var model = Matrix4.CreateTranslation(
-        new Vector3(
-          chunkPos.X * Chunk.Width,
-          0,
-          chunkPos.Z * Chunk.Depth));
-
-      GL.UniformMatrix4(
-        _worldShader.ModelLocation,
-        false,
-        ref model);
-
-      mesh.DrawWater(
-        _textureManager,
-        _worldShader.TextureLocation,
-        _worldShader.TintLocation);
-    }
-
-    GL.DepthMask(true);
-    GL.Disable(EnableCap.Blend);
-
-    GL.Uniform1(
-      _worldShader.AlphaLocation,
-      1.0f);
-  }
-
   // ── Input ─────────────────────────────────────────────────────────────
 
   protected override void OnKeyDown(KeyboardKeyEventArgs e)
@@ -696,17 +626,23 @@ public sealed class KCraftWindow : GameWindow
   private void InitRenderers()
   {
     const string font = "assets/dev/font_ascii.png";
+
     _sky = new SkyRenderer();
     _stars = new StarRenderer();
     _clouds = new CloudRenderer();
+    _chunkRenderer = new ChunkRenderer(_worldShader);
+
     _debug = new DebugOverlay(font);
     _chunkBorders = new ChunkBorderRenderer();
     _crosshair = new CrosshairRenderer(font);
     _blockHighlight = new BlockHighlightRenderer();
+
     _playerInventory.SetDefaultHotbar();
+
     _hotbar = new HotbarRenderer(font, _playerInventory);
     _hitbox = new HitboxRenderer();
     _gameModeSwitcher = new GameModeSwitcher(font);
+
     _ui.Inventory.SetTextures(_textureManager);
     _ui.CreativeInventory.SetTextures(_textureManager);
   }
