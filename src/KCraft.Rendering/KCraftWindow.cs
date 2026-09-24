@@ -10,6 +10,7 @@ using KCraft.Assets;
 using KCraft.World;
 using KCraft.Rendering.Ui;
 using KCraft.Rendering.Benchmark;
+using KCraft.Rendering.Shaders;
 using KCraft.Core;
 using KCraft.Blocks;
 
@@ -18,8 +19,7 @@ namespace KCraft.Rendering;
 public sealed class KCraftWindow : GameWindow
 {
   // ── Shader ────────────────────────────────────────────────────────────
-  private int _shader;
-  private int _uModel, _uView, _uProjection, _uAmbient, _uAlpha;
+  private WorldShader _worldShader = null!;
 
   // ── World ─────────────────────────────────────────────────────────────
   private WorldManager _world = null!;
@@ -112,7 +112,7 @@ public sealed class KCraftWindow : GameWindow
     base.OnLoad();
     GL.ClearColor(0f, 0f, 0f, 1f);
 
-    InitShader();
+    _worldShader = new WorldShader();
     InitGL();
 
     _camera = new Camera(new Vector3(8, 65, -10));
@@ -148,7 +148,7 @@ public sealed class KCraftWindow : GameWindow
     _hitbox.Dispose();
     _gameModeSwitcher.Dispose();
     _discord.Dispose();
-    GL.DeleteProgram(_shader);
+    _worldShader.Dispose();
   }
 
   // ── Update ────────────────────────────────────────────────────────────
@@ -361,16 +361,14 @@ public sealed class KCraftWindow : GameWindow
 
   private void DrawChunks(Matrix4 view, Matrix4 projection)
   {
-    GL.UseProgram(_shader);
-    GL.UniformMatrix4(_uView, false, ref view);
-    GL.UniformMatrix4(_uProjection, false, ref projection);
+    _worldShader.Use();
+    GL.UniformMatrix4(_worldShader.ViewLocation, false, ref view);
+    GL.UniformMatrix4(_worldShader.ProjectionLocation, false, ref projection);
 
     float skyLight = _ticker.Time.SkyLight;
     float ambient = Math.Clamp(skyLight * (1.0f - 0.267f) + 0.267f, 0.267f, 1.0f);
-    GL.Uniform1(_uAmbient, ambient);
 
-    int uTex = GL.GetUniformLocation(_shader, "uTexture");
-    int uTint = GL.GetUniformLocation(_shader, "uTint");
+    GL.Uniform1(_worldShader.AmbientLocation, ambient);
 
     // Frustum updaten + sichtbare Chunks sammeln (kein Alloc pro Frame)
     _frustum.Update(view * projection);
@@ -381,32 +379,64 @@ public sealed class KCraftWindow : GameWindow
     _visibleChunks = _visibleList.Count;
 
     // ── Pass 1: Solide Blöcke ─────────────────────────────────────────
-    GL.Uniform1(_uAlpha, 1.0f);
+    GL.Uniform1(_worldShader.AlphaLocation, 1.0f);
+
     foreach (var (mesh, _, chunkPos) in _visibleList)
     {
       var model = Matrix4.CreateTranslation(
-          new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
-      GL.UniformMatrix4(_uModel, false, ref model);
-      mesh.Draw(_textureManager, uTex, uTint);
+        new Vector3(
+          chunkPos.X * Chunk.Width,
+          0,
+          chunkPos.Z * Chunk.Depth));
+
+      GL.UniformMatrix4(
+        _worldShader.ModelLocation,
+        false,
+        ref model);
+
+      mesh.Draw(
+        _textureManager,
+        _worldShader.TextureLocation,
+        _worldShader.TintLocation);
     }
 
     // ── Pass 2: Wasser ────────────────────────────────────────────────
     GL.Enable(EnableCap.Blend);
-    GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+    GL.BlendFunc(
+      BlendingFactor.SrcAlpha,
+      BlendingFactor.OneMinusSrcAlpha);
+
     GL.DepthMask(false);
-    GL.Uniform1(_uAlpha, 0.8f);
+
+    GL.Uniform1(
+      _worldShader.AlphaLocation,
+      0.8f);
 
     foreach (var (mesh, _, chunkPos) in _visibleList)
     {
       var model = Matrix4.CreateTranslation(
-          new Vector3(chunkPos.X * Chunk.Width, 0, chunkPos.Z * Chunk.Depth));
-      GL.UniformMatrix4(_uModel, false, ref model);
-      mesh.DrawWater(_textureManager, uTex, uTint);
+        new Vector3(
+          chunkPos.X * Chunk.Width,
+          0,
+          chunkPos.Z * Chunk.Depth));
+
+      GL.UniformMatrix4(
+        _worldShader.ModelLocation,
+        false,
+        ref model);
+
+      mesh.DrawWater(
+        _textureManager,
+        _worldShader.TextureLocation,
+        _worldShader.TintLocation);
     }
 
     GL.DepthMask(true);
     GL.Disable(EnableCap.Blend);
-    GL.Uniform1(_uAlpha, 1.0f);
+
+    GL.Uniform1(
+      _worldShader.AlphaLocation,
+      1.0f);
   }
 
   // ── Input ─────────────────────────────────────────────────────────────
@@ -655,26 +685,6 @@ public sealed class KCraftWindow : GameWindow
 
   // ── Init Helpers ──────────────────────────────────────────────────────
 
-  private void InitShader()
-  {
-    int vert = CompileShader(ShaderType.VertexShader, VertexShaderSource);
-    int frag = CompileShader(ShaderType.FragmentShader, FragmentShaderSource);
-    _shader = GL.CreateProgram();
-    GL.AttachShader(_shader, vert);
-    GL.AttachShader(_shader, frag);
-    GL.LinkProgram(_shader);
-    GL.GetProgram(_shader, GetProgramParameterName.LinkStatus, out int linked);
-    if (linked == 0) throw new Exception($"Shader link error: {GL.GetProgramInfoLog(_shader)}");
-    GL.DeleteShader(vert);
-    GL.DeleteShader(frag);
-
-    _uModel = GL.GetUniformLocation(_shader, "uModel");
-    _uView = GL.GetUniformLocation(_shader, "uView");
-    _uProjection = GL.GetUniformLocation(_shader, "uProjection");
-    _uAmbient = GL.GetUniformLocation(_shader, "uAmbient");
-    _uAlpha = GL.GetUniformLocation(_shader, "uAlpha");
-  }
-
   private static void InitGL()
   {
     GL.Enable(EnableCap.DepthTest);
@@ -723,15 +733,6 @@ public sealed class KCraftWindow : GameWindow
   private static Vector2 ToUiMousePosition(Vector2 mouse)
     => new(mouse.X, mouse.Y + UiMouseYOffset);
 
-  private static int CompileShader(ShaderType type, string source)
-  {
-    int shader = GL.CreateShader(type);
-    GL.ShaderSource(shader, source);
-    GL.CompileShader(shader);
-    GL.GetShader(shader, ShaderParameter.CompileStatus, out int success);
-    if (success == 0) throw new Exception($"Shader compile error: {GL.GetShaderInfoLog(shader)}");
-    return shader;
-  }
 
   private void ApplyGameMode(GameMode mode)
   {
