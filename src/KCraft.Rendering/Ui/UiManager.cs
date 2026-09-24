@@ -121,18 +121,18 @@ public sealed class UiManager : IDisposable
     {
         if (!_hasLayout) return;
 
-        var virtualScreen = _screen / UiScale.Scale;
+        var uiScreen = _screen / UiScale.Scale;
 
-        MainMenu.Layout(virtualScreen);
-        PauseMenu.Layout(virtualScreen);
-        Options.Layout(virtualScreen);
+        MainMenu.Layout(uiScreen);
+        PauseMenu.Layout(uiScreen);
+        Options.Layout(uiScreen);
         Loading.Layout(_screen);
-        NewWorld.Layout(virtualScreen);
-        SelectWorld.Layout(virtualScreen);
-        Inventory.Layout(_screen);
+        NewWorld.Layout(uiScreen);
+        SelectWorld.Layout(uiScreen);
+        Inventory.Layout(uiScreen);
         CreativeInventory.Layout(_screen);
-        BenchmarkHud.Layout(virtualScreen);
-        BenchmarkResult.Layout(virtualScreen);
+        BenchmarkHud.Layout(uiScreen);
+        BenchmarkResult.Layout(uiScreen);
     }
 
     public void Draw(Vector2 screen, float mx, float my)

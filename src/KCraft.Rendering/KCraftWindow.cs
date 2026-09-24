@@ -45,7 +45,6 @@ public sealed class KCraftWindow : GameWindow
   // ── State ─────────────────────────────────────────────────────────────
   private RaycastHit _lastHit;
   private Vector2 _mousePosition;
-  private const float UiMouseYOffset = 0f;
   private bool _firstMouse = true;
   private readonly GameplayController _gameplay = new();
   // ── Fields ────────────────────────────────────────────────────────────
@@ -267,10 +266,6 @@ public sealed class KCraftWindow : GameWindow
         _gameModeSwitcher.Draw(new Vector2(Size.X, Size.Y));
         _crosshair.Draw(new Vector2(Size.X, Size.Y));
         _hotbar.Draw(new Vector2(Size.X, Size.Y), _textureManager);
-        if (_ui.State == GameState.Inventory)
-          _ui.Inventory.Draw(new Vector2(Size.X, Size.Y), _mousePosition.X, _mousePosition.Y);
-        if (_ui.State == GameState.CreativeInventory)
-          _ui.CreativeInventory.Draw(new Vector2(Size.X, Size.Y), _mousePosition.X, _mousePosition.Y);
       }
       else if (_ui.State == GameState.Benchmark)
       {
@@ -558,7 +553,7 @@ public sealed class KCraftWindow : GameWindow
   }
 
   private static Vector2 ToUiMousePosition(Vector2 mouse)
-    => new(mouse.X, mouse.Y + UiMouseYOffset);
+    => mouse;
 
 
   private void ApplyGameMode(GameMode mode)

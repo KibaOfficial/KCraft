@@ -50,15 +50,15 @@ public sealed class InventoryScreen : Screen
   public override void Layout(Vector2 screen)
   {
     _screen = screen;
-    float s = UiScale.Scale;
-    _slotSize = 20f * s; // ← größer (war 18)
-    _padding = 2f * s;
+
+    _slotSize = 20f;
+    _padding = 2f;
 
     float panelW = 9 * (_slotSize + _padding) + _padding * 2 + 8f;
-    float panelH = 3 * (_slotSize + _padding)  // 3 main rows
-                 + _slotSize                    // hotbar row
-                 + _padding * 6                 // padding zwischen rows + border
-                 + 22f * s;                     // title
+    float panelH = 3 * (_slotSize + _padding)
+                 + _slotSize
+                 + _padding * 6
+                 + 22f;
 
     _invX = (screen.X - panelW) / 2f;
     _invY = (screen.Y - panelH) / 2f;
@@ -66,41 +66,68 @@ public sealed class InventoryScreen : Screen
 
   public override void Draw(Vector2 screen, float mouseX, float mouseY)
   {
-    _mouseX = mouseX;
-    _mouseY = mouseY;
-    float s = UiScale.Scale;
+    var mouseUi = UiCoordinates.ToUi(new Vector2(mouseX, mouseY));
+
+    _mouseX = mouseUi.X;
+    _mouseY = mouseUi.Y;
 
     float panelW = 9 * (_slotSize + _padding) + _padding * 2 + 8f;
-    float panelH = 3 * (_slotSize + _padding) + _slotSize + _padding * 6 + 22f * s;
+    float panelH = 3 * (_slotSize + _padding)
+                 + _slotSize
+                 + _padding * 6
+                 + 22f;
 
-    // Dimmed Background — mit Blending
+    // Dimmed Background
     GL.Enable(EnableCap.Blend);
-    GL.BlendFunc(BlendingFactor.SrcAlpha,
-                 BlendingFactor.OneMinusSrcAlpha);
+    GL.BlendFunc(
+      BlendingFactor.SrcAlpha,
+      BlendingFactor.OneMinusSrcAlpha);
+
     Text.DrawRect(0, 0, screen.X, screen.Y, screen, BgDim);
+
     GL.Disable(EnableCap.Blend);
 
     // Panel
-    Text.DrawRect(_invX, _invY, panelW, panelH, screen, PanelBg);
+    Text.DrawRect(
+      UiCoordinates.ToScreen(_invX),
+      UiCoordinates.ToScreen(_invY),
+      UiCoordinates.ToScreen(panelW),
+      UiCoordinates.ToScreen(panelH),
+      screen,
+      PanelBg);
 
     // Title
-    Text.DrawText("Inventory", _invX + 8f, _invY + 4f * s, screen, scale: s, color: BorderDark);
+    Text.DrawText(
+      "Inventory",
+      UiCoordinates.ToScreen(_invX + 8f),
+      UiCoordinates.ToScreen(_invY + 4f),
+      screen,
+      scale: UiScale.Scale,
+      color: BorderDark);
 
     float startX = _invX + _padding + 4f;
-    float startY = _invY + 18f * s; // ← kleiner (war 22)
+    float startY = _invY + 18f;
 
-    // Main Inventory (3 rows × 9)
+    // Main Inventory
     for (int row = 0; row < 3; row++)
+    {
       for (int col = 0; col < 9; col++)
       {
         int slot = 9 + row * 9 + col;
+
         float sx = startX + col * (_slotSize + _padding);
         float sy = startY + row * (_slotSize + _padding);
+
         DrawSlot(sx, sy, slot, screen);
       }
+    }
 
-    // Hotbar — mit extra Abstand
-    float hotbarY = startY + 3 * (_slotSize + _padding) + _padding * 2;
+    // Hotbar
+    float hotbarY =
+      startY +
+      3 * (_slotSize + _padding) +
+      _padding * 2;
+
     for (int col = 0; col < 9; col++)
     {
       float sx = startX + col * (_slotSize + _padding);
@@ -109,51 +136,132 @@ public sealed class InventoryScreen : Screen
 
     // Held Block
     if (_heldBlock != Block.Air && _textures != null)
-      _icon.Draw(_heldBlock, mouseX - _slotSize / 2f, mouseY - _slotSize / 2f, _slotSize, screen, _textures);
+    {
+      float slotSize = UiCoordinates.ToScreen(_slotSize);
+
+      _icon.Draw(
+        _heldBlock,
+        mouseX - slotSize / 2f,
+        mouseY - slotSize / 2f,
+        slotSize,
+        screen,
+        _textures);
+    }
   }
 
-  private void DrawSlot(float sx, float sy, int slotIndex, Vector2 screen)
+  private void DrawSlot(
+  float sx,
+  float sy,
+  int slotIndex,
+  Vector2 screen)
   {
-    bool hover = _mouseX >= sx && _mouseX <= sx + _slotSize && _mouseY >= sy && _mouseY <= sy + _slotSize;
+    bool hover =
+      _mouseX >= sx &&
+      _mouseX <= sx + _slotSize &&
+      _mouseY >= sy &&
+      _mouseY <= sy + _slotSize;
+
+    float x = UiCoordinates.ToScreen(sx);
+    float y = UiCoordinates.ToScreen(sy);
+    float size = UiCoordinates.ToScreen(_slotSize);
+    float border = UiCoordinates.ToScreen(1f);
 
     // Border
-    Text.DrawRect(sx - 1, sy - 1, _slotSize + 2, 1, screen, BorderDark);  // Top
-    Text.DrawRect(sx - 1, sy - 1, 1, _slotSize + 2, screen, BorderDark);  // Left
-    Text.DrawRect(sx - 1, sy + _slotSize, _slotSize + 2, 1, screen, BorderLight); // Bottom
-    Text.DrawRect(sx + _slotSize, sy - 1, 1, _slotSize + 2, screen, BorderLight); // Right
+    Text.DrawRect(
+      x - border,
+      y - border,
+      size + border * 2f,
+      border,
+      screen,
+      BorderDark);
 
-    // Background
-    Text.DrawRect(sx, sy, _slotSize, _slotSize, screen, hover ? SlotHover : SlotBg);
+    Text.DrawRect(
+      x - border,
+      y - border,
+      border,
+      size + border * 2f,
+      screen,
+      BorderDark);
 
-    // Block Icon
+    Text.DrawRect(
+      x - border,
+      y + size,
+      size + border * 2f,
+      border,
+      screen,
+      BorderLight);
+
+    Text.DrawRect(
+      x + size,
+      y - border,
+      border,
+      size + border * 2f,
+      screen,
+      BorderLight);
+
+    Text.DrawRect(
+      x,
+      y,
+      size,
+      size,
+      screen,
+      hover ? SlotHover : SlotBg);
+
     var block = _inventory.GetSlot(slotIndex);
+
     if (block != Block.Air && _textures != null)
-      _icon.Draw(block, sx, sy, _slotSize, screen, _textures);
+      _icon.Draw(block, x, y, size, screen, _textures);
   }
 
   public override void HandleClick(float mx, float my)
   {
+    var mouseUi = UiCoordinates.ToUi(new Vector2(mx, my));
+
+    float ux = mouseUi.X;
+    float uy = mouseUi.Y;
+
     float startX = _invX + _padding + 4f;
-    float startY = _invY + 18f * UiScale.Scale;
-    float hotbarY = startY + 3 * (_slotSize + _padding) + _padding * 2;
+    float startY = _invY + 18f;
+
+    float hotbarY =
+      startY +
+      3 * (_slotSize + _padding) +
+      _padding * 2;
 
     // Main Inventory
     for (int row = 0; row < 3; row++)
+    {
       for (int col = 0; col < 9; col++)
       {
         int slot = 9 + row * 9 + col;
+
         float sx = startX + col * (_slotSize + _padding);
         float sy = startY + row * (_slotSize + _padding);
-        if (mx >= sx && mx <= sx + _slotSize && my >= sy && my <= sy + _slotSize)
-        { SwapWithHeld(slot); return; }
+
+        if (ux >= sx &&
+            ux <= sx + _slotSize &&
+            uy >= sy &&
+            uy <= sy + _slotSize)
+        {
+          SwapWithHeld(slot);
+          return;
+        }
       }
+    }
 
     // Hotbar
     for (int col = 0; col < 9; col++)
     {
       float sx = startX + col * (_slotSize + _padding);
-      if (mx >= sx && mx <= sx + _slotSize && my >= hotbarY && my <= hotbarY + _slotSize)
-      { SwapWithHeld(col); return; }
+
+      if (ux >= sx &&
+          ux <= sx + _slotSize &&
+          uy >= hotbarY &&
+          uy <= hotbarY + _slotSize)
+      {
+        SwapWithHeld(col);
+        return;
+      }
     }
   }
 
