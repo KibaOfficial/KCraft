@@ -118,13 +118,27 @@ public sealed class BlockIconRenderer : IDisposable
     var view = Matrix4.LookAt(new Vector3(0, 0, 5), Vector3.Zero, Vector3.UnitY);
     var mvp = model * view * proj;
 
-    // Viewport auf Slot-Bereich setzen
-    int ix = (int)x;
-    int iy = (int)(screen.Y - y - size);
-    int isize = (int)size;
+    var previousViewport = UiFramebuffer.GetViewport();
 
-    GL.Viewport(ix, iy, isize, isize);
-    GL.Scissor(ix, iy, isize, isize);
+    var iconRect = UiFramebuffer.ToFramebufferRect(
+      screen,
+      x,
+      y,
+      size,
+      size,
+      previousViewport);
+
+    GL.Viewport(
+      iconRect.X,
+      iconRect.Y,
+      iconRect.Width,
+      iconRect.Height);
+
+    GL.Scissor(
+      iconRect.X,
+      iconRect.Y,
+      iconRect.Width,
+      iconRect.Height);
     GL.Enable(EnableCap.ScissorTest);
 
     // wichtig für 3D-Icons
@@ -148,7 +162,7 @@ public sealed class BlockIconRenderer : IDisposable
     GL.Enable(EnableCap.CullFace);
     GL.Disable(EnableCap.ScissorTest);
 
-    GL.Viewport(0, 0, (int)screen.X, (int)screen.Y);
+    UiFramebuffer.RestoreViewport(previousViewport);
     GL.BindVertexArray(0);
   }
 

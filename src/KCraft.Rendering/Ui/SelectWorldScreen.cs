@@ -48,7 +48,6 @@ public sealed class SelectWorldScreen : Screen
   private List<WorldEntry> _filtered = [];
   private int _selectedIndex = -1;
   private float _scrollOffset = 0f;
-  private float _mouseX, _mouseY;
   private float _lastClickTime = 0f;
   private int _lastClickIndex = -1;
 
@@ -120,7 +119,6 @@ public sealed class SelectWorldScreen : Screen
   // ── Layout ────────────────────────────────────────────────────────────
   public override void Layout(Vector2 screen)
   {
-    float scale = UiScale.Scale;
 
     // Filter
     float filterW = Math.Min(600f, screen.X - 40f);
@@ -157,7 +155,6 @@ public sealed class SelectWorldScreen : Screen
   // ── Draw ──────────────────────────────────────────────────────────────
   public override void Draw(Vector2 screen, float mouseX, float mouseY)
   {
-    _mouseX = mouseX; _mouseY = mouseY;
     float scale = UiScale.Scale;
 
     // Hintergrund
@@ -185,12 +182,22 @@ public sealed class SelectWorldScreen : Screen
     float entryG = EntryGap * scale;
     float stride = entryH + entryG;
 
+    var viewport = UiFramebuffer.GetViewport();
+
+    var clipRect = UiFramebuffer.ToFramebufferRect(
+      screen,
+      listX,
+      listY,
+      listW,
+      listH,
+      viewport);
+
     GL.Enable(EnableCap.ScissorTest);
     GL.Scissor(
-      (int)listX,
-      (int)(screen.Y - (listY + listH)),
-      (int)listW,
-      (int)listH);
+      clipRect.X,
+      clipRect.Y,
+      clipRect.Width,
+      clipRect.Height);
 
     for (int i = 0; i < _filtered.Count; i++)
     {
@@ -199,8 +206,8 @@ public sealed class SelectWorldScreen : Screen
       if (ey > listY + listH) break;
 
       // Clip zu Listbereich
-      float visTop = Math.Max(ey, _listY);
-      float visBottom = Math.Min(ey + entryH, _listY + _listH);
+      float visTop = Math.Max(ey, listY);
+      float visBottom = Math.Min(ey + entryH, listY + listH);
       if (visBottom <= visTop) continue;
 
       var entry = _filtered[i];
@@ -214,7 +221,7 @@ public sealed class SelectWorldScreen : Screen
 
       // Selected Border links
       if (isSelected)
-        Text.DrawRect(_listX, ey, 3f * scale, entryH, screen, BorderSelected);
+        Text.DrawRect(listX, ey, 3f * scale, entryH, screen, BorderSelected);
 
       // Icon Placeholder
       float iconSize = IconSize * scale;
@@ -257,7 +264,7 @@ public sealed class SelectWorldScreen : Screen
 
       // Divider
       if (i < _filtered.Count - 1)
-        Text.DrawRect(_listX, ey + entryH, _listW, 1f, screen, DividerColor);
+        Text.DrawRect(listX, ey + entryH, listW, 1f, screen, DividerColor);
     }
 
     GL.Disable(EnableCap.ScissorTest);
@@ -351,7 +358,7 @@ public sealed class SelectWorldScreen : Screen
   {
     float scale = UiScale.Scale;
     float stride = (EntryH + EntryGap) * scale;
-    float maxScroll = Math.Max(0, _filtered.Count * stride - _listH);
+    float maxScroll = Math.Max(0, _filtered.Count * stride - ListH);
     _scrollOffset = Math.Clamp(_scrollOffset - delta * stride, 0, maxScroll);
   }
 
@@ -364,8 +371,8 @@ public sealed class SelectWorldScreen : Screen
 
     if (itemTop < _scrollOffset)
       _scrollOffset = itemTop;
-    else if (itemBottom > _scrollOffset + _listH)
-      _scrollOffset = itemBottom - _listH;
+    else if (itemBottom > _scrollOffset + ListH)
+      _scrollOffset = itemBottom - ListH;
   }
 
   public override void Update(float deltaTime) => base.Update(deltaTime);

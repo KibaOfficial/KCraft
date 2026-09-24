@@ -71,6 +71,9 @@ public sealed class KCraftWindow : GameWindow
     base.OnLoad();
     GL.ClearColor(0f, 0f, 0f, 1f);
 
+    var framebuffer = FramebufferSize;
+    GL.Viewport(0, 0, framebuffer.X, framebuffer.Y);
+
     _worldShader = new WorldShader();
     InitGL();
 
@@ -460,8 +463,11 @@ public sealed class KCraftWindow : GameWindow
   protected override void OnResize(ResizeEventArgs e)
   {
     base.OnResize(e);
-    GL.Viewport(0, 0, e.Width, e.Height);
-    _ui?.Layout(new Vector2(e.Width, e.Height));
+
+    var framebuffer = FramebufferSize;
+    GL.Viewport(0, 0, framebuffer.X, framebuffer.Y);
+
+    _ui?.Layout(new Vector2(Size.X, Size.Y));
   }
 
   // ── Game State ────────────────────────────────────────────────────────
