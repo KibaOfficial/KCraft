@@ -130,7 +130,7 @@ public sealed class UiManager : IDisposable
         NewWorld.Layout(uiScreen);
         SelectWorld.Layout(uiScreen);
         Inventory.Layout(uiScreen);
-        CreativeInventory.Layout(_screen);
+        CreativeInventory.Layout(uiScreen);
         BenchmarkHud.Layout(uiScreen);
         BenchmarkResult.Layout(uiScreen);
     }

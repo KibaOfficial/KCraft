@@ -31,10 +31,9 @@ public sealed class CreativeInventoryScreen : Screen
   private int _activeTab;
   private float _scrollOffset = 0f;
 
-  // ── Layout, physical coords ───────────────────────────────────────────
+  // ── Layout, UI units ─────────────────────────────────────────────────
   private float _panelX, _panelY, _slotSize, _padding;
   private float _tabH;
-  private Vector2 _screen;
   private float _mouseX, _mouseY;
 
   // ── Drag State ────────────────────────────────────────────────────────
@@ -94,15 +93,9 @@ public sealed class CreativeInventoryScreen : Screen
 
   public override void Layout(Vector2 screen)
   {
-    _screen = screen;
-
-    float s = UiScale.Scale;
-
-    // CreativeInventory arbeitet hier bewusst in physical coords,
-    // wie dein normales InventoryScreen.
-    _slotSize = 20f * s;
-    _padding = 2f * s;
-    _tabH = 22f * s;
+    _slotSize = 20f;
+    _padding = 2f;
+    _tabH = 22f;
 
     float panelW = CalcPanelW();
     float panelH = CalcPanelH();
@@ -113,10 +106,11 @@ public sealed class CreativeInventoryScreen : Screen
 
   public override void Draw(Vector2 screen, float mouseX, float mouseY)
   {
-    _mouseX = mouseX;
-    _mouseY = mouseY;
+    var mouseUi = UiCoordinates.ToUi(new Vector2(mouseX, mouseY));
 
-    float s = UiScale.Scale;
+    _mouseX = mouseUi.X;
+    _mouseY = mouseUi.Y;
+
     float panelW = CalcPanelW();
     float panelH = CalcPanelH();
 
@@ -127,7 +121,7 @@ public sealed class CreativeInventoryScreen : Screen
     GL.Disable(EnableCap.Blend);
 
     // Panel
-    Text.DrawRect(_panelX, _panelY, panelW, panelH, screen, PanelBg);
+    DrawRectUi(_panelX, _panelY, panelW, panelH, screen, PanelBg);
 
     // Tabs
     float tabW = (_slotSize + _padding) * 2f;
@@ -137,32 +131,32 @@ public sealed class CreativeInventoryScreen : Screen
     {
       float tx = tabsStartX + i * (tabW + _padding);
       bool active = i == _activeTab;
-      bool hover = mouseX >= tx && mouseX <= tx + tabW
-        && mouseY >= _panelY
-        && mouseY <= _panelY + _tabH;
+      bool hover = _mouseX >= tx && _mouseX <= tx + tabW
+        && _mouseY >= _panelY
+        && _mouseY <= _panelY + _tabH;
 
-      Text.DrawRect(
+      DrawRectUi(
         tx,
-        _panelY + 2f * s,
+        _panelY + 2f,
         tabW,
-        _tabH - 2f * s,
+        _tabH - 2f,
         screen,
         active ? TabActive : hover ? SlotHover : TabInactive);
 
-      Text.DrawRect(tx, _panelY + 2f * s, tabW, 1f * s, screen, active ? BorderLight : BorderDark);
-      Text.DrawRect(tx, _panelY + 2f * s, 1f * s, _tabH - 2f * s, screen, BorderDark);
-      Text.DrawRect(tx + tabW, _panelY + 2f * s, 1f * s, _tabH - 2f * s, screen, BorderLight);
+      DrawRectUi(tx, _panelY + 2f, tabW, 1f, screen, active ? BorderLight : BorderDark);
+      DrawRectUi(tx, _panelY + 2f, 1f, _tabH - 2f, screen, BorderDark);
+      DrawRectUi(tx + tabW, _panelY + 2f, 1f, _tabH - 2f, screen, BorderLight);
 
-      float textScale = s * 0.8f;
+      const float textScale = 0.8f;
       float tw = Text.MeasureTextWidth(_tabs[i].name, textScale);
 
-      Text.DrawText(
+      DrawTextUi(
         _tabs[i].name,
         tx + (tabW - tw) / 2f,
-        _panelY + 4f * s,
+        _panelY + 4f,
         screen,
-        scale: textScale,
-        color: active ? BorderDark : new Vector4(0.7f, 0.7f, 0.7f, 1f));
+        textScale,
+        active ? BorderDark : new Vector4(0.7f, 0.7f, 0.7f, 1f));
     }
 
     // Grid
@@ -184,13 +178,12 @@ public sealed class CreativeInventoryScreen : Screen
     // Held block follows mouse
     if (_heldBlock != Block.Air && _textures != null)
     {
-      _icon.Draw(
+      DrawIconUi(
         _heldBlock,
-        mouseX - _slotSize / 2f,
-        mouseY - _slotSize / 2f,
+        _mouseX - _slotSize / 2f,
+        _mouseY - _slotSize / 2f,
         _slotSize,
-        screen,
-        _textures);
+        screen);
     }
   }
 
@@ -241,32 +234,29 @@ public sealed class CreativeInventoryScreen : Screen
 
   private void DrawScrollbar(float gridX, float gridY, int totalRows, float maxScroll, Vector2 screen)
   {
-    float s = UiScale.Scale;
-    float scrollW = 8f * s;
+    const float scrollW = 8f;
     float sbX = gridX + GridCols * (_slotSize + _padding) + _padding;
     float sbH = GridRows * (_slotSize + _padding);
     float barH = sbH * GridRows / totalRows;
     float barY = gridY + (maxScroll > 0 ? _scrollOffset / maxScroll * (sbH - barH) : 0);
 
-    Text.DrawRect(sbX, gridY, scrollW, sbH, screen, ScrollBg);
-    Text.DrawRect(sbX, barY, scrollW, barH, screen, ScrollBar);
+    DrawRectUi(sbX, gridY, scrollW, sbH, screen, ScrollBg);
+    DrawRectUi(sbX, barY, scrollW, barH, screen, ScrollBar);
   }
 
   private void DrawHotbar(float gridX, float hotbarY, Vector2 screen)
   {
-    float s = UiScale.Scale;
-
     for (int col = 0; col < GridCols; col++)
     {
       float sx = gridX + col * (_slotSize + _padding);
 
       if (col == _inventory.SelectedHotbarSlot)
       {
-        Text.DrawRect(
-          sx - 2f * s,
-          hotbarY - 2f * s,
-          _slotSize + 4f * s,
-          _slotSize + 4f * s,
+        DrawRectUi(
+          sx - 2f,
+          hotbarY - 2f,
+          _slotSize + 4f,
+          _slotSize + 4f,
           screen,
           BorderLight);
       }
@@ -280,19 +270,19 @@ public sealed class CreativeInventoryScreen : Screen
     bool hover = _mouseX >= sx && _mouseX <= sx + size
           && _mouseY >= sy && _mouseY <= sy + size;
 
-    float b = UiScale.Scale;
+    const float border = 1f;
 
-    Text.DrawRect(sx - b, sy - b, size + b * 2, b, screen, BorderDark);
-    Text.DrawRect(sx - b, sy - b, b, size + b * 2, screen, BorderDark);
-    Text.DrawRect(sx - b, sy + size, size + b * 2, b, screen, BorderLight);
-    Text.DrawRect(sx + size, sy - b, b, size + b * 2, screen, BorderLight);
-    Text.DrawRect(sx, sy, size, size, screen, hover ? SlotHover : SlotBg);
+    DrawRectUi(sx - border, sy - border, size + border * 2f, border, screen, BorderDark);
+    DrawRectUi(sx - border, sy - border, border, size + border * 2f, screen, BorderDark);
+    DrawRectUi(sx - border, sy + size, size + border * 2f, border, screen, BorderLight);
+    DrawRectUi(sx + size, sy - border, border, size + border * 2f, screen, BorderLight);
+    DrawRectUi(sx, sy, size, size, screen, hover ? SlotHover : SlotBg);
   }
 
   private void DrawSlotBlock(float sx, float sy, float size, Block block, Vector2 screen)
   {
     if (block != Block.Air && _textures != null)
-      _icon.Draw(block, sx, sy, size, screen, _textures);
+      DrawIconUi(block, sx, sy, size, screen);
   }
 
   private void DrawSlot(float sx, float sy, float size, Block block, Vector2 screen)
@@ -303,16 +293,19 @@ public sealed class CreativeInventoryScreen : Screen
 
   public override void HandleClick(float mx, float my)
   {
+    var mouseUi = UiCoordinates.ToUi(new Vector2(mx, my));
+
+    float hitMx = mouseUi.X;
+    float hitMy = mouseUi.Y;
     float tabW = (_slotSize + _padding) * 2f;
     float tabsStartX = _panelX + _padding + 4f;
-    float hitMy = my;
 
     // Tabs
     for (int i = 0; i < _tabs.Count; i++)
     {
       float tx = tabsStartX + i * (tabW + _padding);
 
-      if (mx >= tx && mx <= tx + tabW && hitMy >= _panelY && hitMy <= _panelY + _tabH)
+      if (hitMx >= tx && hitMx <= tx + tabW && hitMy >= _panelY && hitMy <= _panelY + _tabH)
       {
         _activeTab = i;
         _scrollOffset = 0f;
@@ -329,16 +322,16 @@ public sealed class CreativeInventoryScreen : Screen
 
     if (isInvTab)
     {
-      if (HandlePlayerInventoryClick(mx, hitMy, gridX, gridY))
+      if (HandlePlayerInventoryClick(hitMx, hitMy, gridX, gridY))
         return;
     }
     else
     {
-      if (HandleCreativeGridClick(mx, hitMy, gridX, gridY))
+      if (HandleCreativeGridClick(hitMx, hitMy, gridX, gridY))
         return;
     }
 
-    if (HandleHotbarClick(mx, hitMy, gridX, hotbarY))
+    if (HandleHotbarClick(hitMx, hitMy, gridX, hotbarY))
       return;
   }
 
@@ -474,6 +467,59 @@ public sealed class CreativeInventoryScreen : Screen
       DropHeld();
       OnClose?.Invoke();
     }
+  }
+
+  private void DrawRectUi(
+    float x,
+    float y,
+    float width,
+    float height,
+    Vector2 screen,
+    Vector4 color)
+  {
+    Text.DrawRect(
+      UiCoordinates.ToScreen(x),
+      UiCoordinates.ToScreen(y),
+      UiCoordinates.ToScreen(width),
+      UiCoordinates.ToScreen(height),
+      screen,
+      color);
+  }
+
+  private void DrawTextUi(
+    string text,
+    float x,
+    float y,
+    Vector2 screen,
+    float scale,
+    Vector4 color)
+  {
+    Text.DrawText(
+      text,
+      UiCoordinates.ToScreen(x),
+      UiCoordinates.ToScreen(y),
+      screen,
+      scale: UiCoordinates.ToScreen(scale),
+      color: color);
+  }
+
+  private void DrawIconUi(
+    Block block,
+    float x,
+    float y,
+    float size,
+    Vector2 screen)
+  {
+    if (_textures == null)
+      return;
+
+    _icon.Draw(
+      block,
+      UiCoordinates.ToScreen(x),
+      UiCoordinates.ToScreen(y),
+      UiCoordinates.ToScreen(size),
+      screen,
+      _textures);
   }
 
   public override void Update(float deltaTime) { }
