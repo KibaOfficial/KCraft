@@ -465,17 +465,6 @@ public sealed class KCraftWindow : GameWindow
   }
 
   // ── Game State ────────────────────────────────────────────────────────
-
-  private void StartGame()
-  {
-    if (WorldSaveManager.WorldExists("default"))
-      LoadWorld();
-
-    _ui.SetState(GameState.Playing);
-    CursorState = CursorState.Grabbed;
-    _firstMouse = true;
-  }
-
   private void PauseGame()
   {
     _ui.SetState(GameState.Paused);
@@ -590,54 +579,6 @@ public sealed class KCraftWindow : GameWindow
   {
     base.OnTextInput(e);
     _ui.HandleTextInput((char)e.Unicode);
-  }
-
-  private void LoadWorld(string name = "default")
-  {
-    var (data, chunks, metadata) = WorldSaveManager.Load(name);
-    if (data == null) return;
-
-    _ticker.Player!.Position = new Vector3(data.PlayerX, data.PlayerY, data.PlayerZ);
-    _camera.Position = _ticker.Player.EyePosition;
-    _camera.SetRotation(data.CameraYaw, data.CameraPitch);
-
-    for (int i = 0; i < 300; i++)
-      _world.UpdateChunks(_ticker.Player.Position,
-        loadRadius: GameSettings.RenderDistance,
-        unloadRadius: GameSettings.RenderDistance + 3);
-
-    _currentGameMode = (GameMode)data.GameMode;
-    ApplyGameMode(_currentGameMode);
-
-    _playerInventory.LoadRawSlots(data.InventorySlots);
-    _playerInventory.SelectedHotbarSlot = data.SelectedHotbarSlot;
-    _hotbar.SelectedSlot = data.SelectedHotbarSlot;
-
-    _ticker.Time.SetTicks(data.TotalTicks);
-
-    // 1. Erst gespeicherte Chunk-Daten laden
-    foreach (var ((cx, cz), rawData) in chunks)
-    {
-      for (int i = 0; i < _world.ChunkMeshes.Count; i++)
-      {
-        var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
-        if (chunkPos.X != cx || chunkPos.Z != cz) continue;
-        chunk.LoadRawBlocks(rawData);
-        if (metadata.TryGetValue((cx, cz), out var metaData))
-          chunk.LoadRawMetadata(metaData);
-        break;
-      }
-    }
-
-    // 2. Dann alle Meshes neu bauen mit GetBlock
-    for (int i = 0; i < _world.ChunkMeshes.Count; i++)
-    {
-      var (mesh, chunk, chunkPos) = _world.ChunkMeshes[i];
-      var newMesh = new ChunkMesh();
-      newMesh.Build(chunk, _world.GetBlock, chunkPos.X, chunkPos.Z, _world.GetWorldFluid);
-      mesh.Dispose();
-      _world.ChunkMeshes[i] = (newMesh, chunk, chunkPos);
-    }
   }
 
   private void LoadAndStartWorld(string name)
