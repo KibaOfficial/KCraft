@@ -205,60 +205,55 @@ public sealed class WorldManager : IDisposable
 
   public bool BreakBlock(Vector3i worldPos)
   {
-    int cx = (int)MathF.Floor(worldPos.X / (float)Chunk.Width);
-    int cz = (int)MathF.Floor(worldPos.Z / (float)Chunk.Depth);
+    if (!TryGetLoadedChunk(
+          worldPos,
+          out var chunk,
+          out int cx,
+          out int cz,
+          out int lx,
+          out int lz))
+      return false;
 
-    for (int i = 0; i < ChunkMeshes.Count; i++)
-    {
-      var (mesh, chunk, chunkPos) = ChunkMeshes[i];
-      if (chunkPos.X != cx || chunkPos.Z != cz) continue;
-      int lx = worldPos.X - cx * Chunk.Width;
-      int lz = worldPos.Z - cz * Chunk.Depth;
-      if (!chunk.IsInside(lx, worldPos.Y, lz)) return false;
-      bool brokeWater = chunk.GetBlock(lx, worldPos.Y, lz) == Block.Water;
-      chunk.SetBlock(lx, worldPos.Y, lz, Block.Air);
-      if (brokeWater)
-        chunk.SetFluidLevel(lx, worldPos.Y, lz, 255);
-      _activeWater.Remove((worldPos.X, worldPos.Y, worldPos.Z));
-      ScheduleWaterAround(worldPos);
-      var newMesh = new ChunkMesh();
-      newMesh.Build(chunk, GetBlock, cx, cz, GetWorldFluid);
-      mesh.Dispose();
-      ChunkMeshes[i] = (newMesh, chunk, chunkPos);
-      return true;
-    }
-    return false;
+    bool brokeWater = chunk.GetBlock(lx, worldPos.Y, lz) == Block.Water;
+
+    chunk.SetBlock(lx, worldPos.Y, lz, Block.Air);
+
+    if (brokeWater)
+      chunk.SetFluidLevel(lx, worldPos.Y, lz, 255);
+
+    _activeWater.Remove((worldPos.X, worldPos.Y, worldPos.Z));
+    ScheduleWaterAround(worldPos);
+
+    return RebuildChunkMesh(cx, cz, chunk);
   }
 
   public bool PlaceBlock(Vector3i worldPos, Block block, byte metadata = 0)
   {
-    int cx = (int)MathF.Floor(worldPos.X / (float)Chunk.Width);
-    int cz = (int)MathF.Floor(worldPos.Z / (float)Chunk.Depth);
+    if (!TryGetLoadedChunk(
+          worldPos,
+          out var chunk,
+          out int cx,
+          out int cz,
+          out int lx,
+          out int lz))
+      return false;
 
-    for (int i = 0; i < ChunkMeshes.Count; i++)
+    if (chunk.GetBlock(lx, worldPos.Y, lz) != Block.Air)
+      return false;
+
+    chunk.SetBlock(lx, worldPos.Y, lz, block);
+    chunk.SetMetadata(lx, worldPos.Y, lz, metadata);
+
+    if (block == Block.Water)
     {
-      var (mesh, chunk, chunkPos) = ChunkMeshes[i];
-      if (chunkPos.X != cx || chunkPos.Z != cz) continue;
-      int lx = worldPos.X - cx * Chunk.Width;
-      int lz = worldPos.Z - cz * Chunk.Depth;
-      if (!chunk.IsInside(lx, worldPos.Y, lz)) return false;
-      if (chunk.GetBlock(lx, worldPos.Y, lz) != Block.Air) return false;
-      chunk.SetBlock(lx, worldPos.Y, lz, block);
-      chunk.SetMetadata(lx, worldPos.Y, lz, metadata);
-      if (block == Block.Water)
-      {
-        chunk.SetFluidLevel(lx, worldPos.Y, lz, 0);
-        _activeWater.Add((worldPos.X, worldPos.Y, worldPos.Z));
-        _waterSim.ScheduleUpdate(worldPos.X, worldPos.Y, worldPos.Z);
-      }
-      ScheduleWaterAround(worldPos);
-      var newMesh = new ChunkMesh();
-      newMesh.Build(chunk, GetBlock, cx, cz, GetWorldFluid);
-      mesh.Dispose();
-      ChunkMeshes[i] = (newMesh, chunk, chunkPos);
-      return true;
+      chunk.SetFluidLevel(lx, worldPos.Y, lz, 0);
+      _activeWater.Add((worldPos.X, worldPos.Y, worldPos.Z));
+      _waterSim.ScheduleUpdate(worldPos.X, worldPos.Y, worldPos.Z);
     }
-    return false;
+
+    ScheduleWaterAround(worldPos);
+
+    return RebuildChunkMesh(cx, cz, chunk);
   }
 
   // ── Fluid Access ──────────────────────────────────────────────────────
@@ -361,5 +356,35 @@ public sealed class WorldManager : IDisposable
     if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) return 0;
     if (!chunk.IsInside(lx, wy, lz)) return 0;
     return chunk.GetMetadata(lx, wy, lz);
+  }
+
+  private bool TryGetLoadedChunk(
+    Vector3i worldPos,
+    out Chunk chunk,
+    out int cx,
+    out int cz,
+    out int lx,
+    out int lz)
+  {
+    cx = (int)MathF.Floor(worldPos.X / (float)Chunk.Width);
+    cz = (int)MathF.Floor(worldPos.Z / (float)Chunk.Depth);
+
+    lx = worldPos.X - cx * Chunk.Width;
+    lz = worldPos.Z - cz * Chunk.Depth;
+
+    if (!_chunkLookup.TryGetValue((cx, cz), out chunk!))
+      return false;
+
+    int meshCx = cx;
+    int meshCz = cz;
+
+    bool hasMesh = ChunkMeshes.Any(entry =>
+      entry.chunkPos.X == meshCx &&
+      entry.chunkPos.Z == meshCz);
+
+    if (!hasMesh)
+      return false;
+
+    return chunk.IsInside(lx, worldPos.Y, lz);
   }
 }
