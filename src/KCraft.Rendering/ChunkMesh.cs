@@ -77,7 +77,16 @@ public sealed class ChunkMesh : IDisposable
             // CTM Blöcke
             if (def.UsesCTM && !string.IsNullOrEmpty(def.CTMTexture))
             {
-              int tileIndex = GetCTMTileIndex(chunk, getWorldBlock, chunkX, chunkZ, x, y, z, face, block);
+              int tileIndex = ConnectedTextureResolver.GetTileIndex(
+                chunk,
+                getWorldBlock,
+                chunkX,
+                chunkZ,
+                x,
+                y,
+                z,
+                face,
+                block);
               string ctmTexName = $"CTM:{def.CTMTexture}:{tileIndex}";
 
               if (!_facesByTexture.TryGetValue(ctmTexName, out var ctmGroup))
@@ -470,72 +479,6 @@ public sealed class ChunkMesh : IDisposable
   {
     if (_vao != 0) { GL.DeleteVertexArray(_vao); GL.DeleteBuffer(_vbo); GL.DeleteBuffer(_ebo); }
     if (_waterVao != 0) { GL.DeleteVertexArray(_waterVao); GL.DeleteBuffer(_waterVbo); GL.DeleteBuffer(_waterEbo); }
-  }
-
-  // ── Connected Texture Method (CTM) ───────────────────────────────────────────────────────────
-  private static int GetCTMTileIndex(Chunk chunk, Func<int, int, int, Block?>? getWorldBlock,
-    int chunkX, int chunkZ, int x, int y, int z, FaceDirection face, Block block)
-  {
-    bool left, right, up, down;
-
-    switch (face)
-    {
-      case FaceDirection.North:
-        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x - 1, y, z, block);
-        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x + 1, y, z, block);
-        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y + 1, z, block);
-        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y - 1, z, block);
-        break;
-      case FaceDirection.South:
-        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x + 1, y, z, block);
-        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x - 1, y, z, block);
-        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y + 1, z, block);
-        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y - 1, z, block);
-        break;
-      case FaceDirection.East:
-        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z - 1, block);
-        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z + 1, block);
-        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y + 1, z, block);
-        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y - 1, z, block);
-        break;
-      case FaceDirection.West:
-        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z + 1, block);
-        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z - 1, block);
-        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y + 1, z, block);
-        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y - 1, z, block);
-        break;
-      case FaceDirection.Up:
-        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x - 1, y, z, block);
-        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x + 1, y, z, block);
-        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z + 1, block);
-        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z - 1, block);
-        break;
-      default: // Down
-        left = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x - 1, y, z, block);
-        right = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x + 1, y, z, block);
-        up = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z - 1, block);
-        down = GetNeighbor(chunk, getWorldBlock, chunkX, chunkZ, x, y, z + 1, block);
-        break;
-    }
-
-    int index = 0;
-    if (left) index |= 1;
-    if (right) index |= 2;
-    if (up) index |= 4;
-    if (down) index |= 8;
-    return index;
-  }
-
-  private static bool GetNeighbor(Chunk chunk, Func<int, int, int, Block?>? getWorldBlock,
-      int chunkX, int chunkZ, int x, int y, int z, Block sameBlock)
-  {
-    if (chunk.IsInside(x, y, z))
-      return chunk.GetBlock(x, y, z) == sameBlock;
-
-    if (getWorldBlock == null) return false;
-    int wx = chunkX * Chunk.Width + x;
-    int wz = chunkZ * Chunk.Depth + z;
-    return getWorldBlock(wx, y, wz) == sameBlock;
   }
 
   private static void AddStairFaces(
