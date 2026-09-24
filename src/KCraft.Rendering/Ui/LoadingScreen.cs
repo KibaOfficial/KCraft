@@ -46,26 +46,27 @@ public sealed class LoadingScreen : Screen
 
   public override void Draw(Vector2 screen, float mouseX, float mouseY)
   {
-    float s = UiScale.Scale;
-    float cx = screen.X / 2f;
-    float cy = screen.Y / 2f;
+    var uiScreen = UiCoordinates.ToUi(screen);
+    float cx = uiScreen.X / 2f;
+    float cy = uiScreen.Y / 2f;
 
     // Hintergrund
     Text.DrawRect(0, 0, screen.X, screen.Y, screen, Bg);
 
     // Titel
     string title = "Loading World...";
-    float tw = Text.MeasureTextWidth(title, s * 1.5f);
-    Text.DrawText(title, cx - tw / 2f, cy - 140f * s,
-        screen, scale: s * 1.5f, color: White);
+    const float titleScale = 1.5f;
+    float tw = Text.MeasureTextWidth(title, titleScale);
+    DrawTextUi(title, cx - tw / 2f, cy - 140f,
+      screen, titleScale, White);
 
     // Chunk Colormap
     int mapSize = MapRadius * 2 + 1; // 17×17
-    float cellSize = 8f * s;
+    const float cellSize = 8f;
     float mapW = mapSize * cellSize;
     float mapH = mapSize * cellSize;
     float mapX = cx - mapW / 2f;
-    float mapY = cy - mapH / 2f - 20f * s;
+    float mapY = cy - mapH / 2f - 20f;
 
     for (int dz = -MapRadius; dz <= MapRadius; dz++)
       for (int dx = -MapRadius; dx <= MapRadius; dx++)
@@ -76,7 +77,7 @@ public sealed class LoadingScreen : Screen
         bool loaded = _loadedSet.Contains((_centerCx + dx, _centerCz + dz));
         var color = loaded ? ChunkDone : ChunkEmpty;
 
-        Text.DrawRect(px + 1, py + 1, cellSize - 2, cellSize - 2, screen, color);
+        DrawRectUi(px + 1f, py + 1f, cellSize - 2f, cellSize - 2f, screen, color);
       }
 
     // Progress Bar
@@ -84,18 +85,52 @@ public sealed class LoadingScreen : Screen
         ? Math.Clamp(LoadedChunks / (float)TargetChunks, 0f, 1f)
         : 0f;
 
-    float barW = 300f * s;
-    float barH = 14f * s;
+    const float barW = 300f;
+    const float barH = 14f;
     float barX = cx - barW / 2f;
-    float barY = mapY + mapH + 20f * s;
+    float barY = mapY + mapH + 20f;
 
-    Text.DrawRect(barX, barY, barW, barH, screen, BarBg);
-    Text.DrawRect(barX, barY, barW * progress, barH, screen, BarFill);
+    DrawRectUi(barX, barY, barW, barH, screen, BarBg);
+    DrawRectUi(barX, barY, barW * progress, barH, screen, BarFill);
 
     // Prozent + Count
     string pct = $"{progress * 100f:F0}%  ({LoadedChunks} / {TargetChunks} chunks)";
-    float pw = Text.MeasureTextWidth(pct, s);
-    Text.DrawText(pct, cx - pw / 2f, barY + barH + 6f * s,
-        screen, scale: s, color: Gray);
+    float pw = Text.MeasureTextWidth(pct);
+    DrawTextUi(pct, cx - pw / 2f, barY + barH + 6f,
+      screen, 1f, Gray);
+  }
+
+  private void DrawRectUi(
+    float x,
+    float y,
+    float width,
+    float height,
+    Vector2 screen,
+    Vector4 color)
+  {
+    Text.DrawRect(
+      UiCoordinates.ToScreen(x),
+      UiCoordinates.ToScreen(y),
+      UiCoordinates.ToScreen(width),
+      UiCoordinates.ToScreen(height),
+      screen,
+      color);
+  }
+
+  private void DrawTextUi(
+    string text,
+    float x,
+    float y,
+    Vector2 screen,
+    float scale,
+    Vector4 color)
+  {
+    Text.DrawText(
+      text,
+      UiCoordinates.ToScreen(x),
+      UiCoordinates.ToScreen(y),
+      screen,
+      scale: UiCoordinates.ToScreen(scale),
+      color: color);
   }
 }

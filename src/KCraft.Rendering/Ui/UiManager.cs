@@ -126,7 +126,7 @@ public sealed class UiManager : IDisposable
         MainMenu.Layout(uiScreen);
         PauseMenu.Layout(uiScreen);
         Options.Layout(uiScreen);
-        Loading.Layout(_screen);
+        Loading.Layout(uiScreen);
         NewWorld.Layout(uiScreen);
         SelectWorld.Layout(uiScreen);
         Inventory.Layout(uiScreen);
