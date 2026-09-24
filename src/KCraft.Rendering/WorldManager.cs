@@ -112,6 +112,25 @@ public sealed class WorldManager : IDisposable
     RebuildNeighborsIfNeeded(cx, cz, chunk);
   }
 
+  private bool RebuildChunkMesh(int cx, int cz, Chunk chunk)
+  {
+    for (int i = 0; i < ChunkMeshes.Count; i++)
+    {
+      var (mesh, _, pos) = ChunkMeshes[i];
+      if (pos.X != cx || pos.Z != cz) continue;
+
+      var newMesh = new ChunkMesh();
+      newMesh.Build(chunk, GetBlock, cx, cz, GetWorldFluid);
+
+      mesh.Dispose();
+      ChunkMeshes[i] = (newMesh, chunk, pos);
+
+      return true;
+    }
+
+    return false;
+  }
+
   private void RebuildNeighborsIfNeeded(int cx, int cz, Chunk newChunk)
   {
     // Prüfe ob neue Chunk Wasser an den Grenzen hat
@@ -144,16 +163,7 @@ public sealed class WorldManager : IDisposable
       int nz = cz + dz[i];
       if (!_chunkLookup.TryGetValue((nx, nz), out var neighborChunk)) continue;
 
-      for (int j = 0; j < ChunkMeshes.Count; j++)
-      {
-        var (mesh, _, pos) = ChunkMeshes[j];
-        if (pos.X != nx || pos.Z != nz) continue;
-        var newMesh = new ChunkMesh();
-        newMesh.Build(neighborChunk, GetBlock, nx, nz, GetWorldFluid);
-        mesh.Dispose();
-        ChunkMeshes[j] = (newMesh, neighborChunk, pos);
-        break;
-      }
+      RebuildChunkMesh(nx, nz, neighborChunk);
     }
   }
 
@@ -168,16 +178,7 @@ public sealed class WorldManager : IDisposable
       int nz = cz + dz[i];
       if (!_chunkLookup.TryGetValue((nx, nz), out var neighborChunk)) continue;
 
-      for (int j = 0; j < ChunkMeshes.Count; j++)
-      {
-        var (mesh, _, pos) = ChunkMeshes[j];
-        if (pos.X != nx || pos.Z != nz) continue;
-        var newMesh = new ChunkMesh();
-        newMesh.Build(neighborChunk, GetBlock, nx, nz, GetWorldFluid);
-        mesh.Dispose();
-        ChunkMeshes[j] = (newMesh, neighborChunk, pos);
-        break;
-      }
+      RebuildChunkMesh(nx, nz, neighborChunk);
     }
   }
 
@@ -331,17 +332,8 @@ public sealed class WorldManager : IDisposable
       }
 
       if (!_chunkLookup.TryGetValue((cx, cz), out var chunk)) continue;
-      for (int i = 0; i < ChunkMeshes.Count; i++)
-      {
-        var (mesh, _, pos) = ChunkMeshes[i];
-        if (pos.X != cx || pos.Z != cz) continue;
-        var newMesh = new ChunkMesh();
-        newMesh.Build(chunk, GetBlock, cx, cz, GetWorldFluid);
-        mesh.Dispose();
-        ChunkMeshes[i] = (newMesh, chunk, pos);
+      if (RebuildChunkMesh(cx, cz, chunk))
         rebuilt++;
-        break;
-      }
     }
 
     _dirtyChunks.Clear();
